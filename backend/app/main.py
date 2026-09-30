@@ -6,12 +6,14 @@ from pydantic import ValidationError
 from app.models import AgentInput, SimulationInput, ExplanationInput
 from app.engine.analyzer import analyze
 from app.ai.explainer import explain
+from app.runtime.routes import router as live_router
 import os
 
 app = FastAPI(title='ScopeLens API', version='0.1.0')
 origins = [o.strip() for o in os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://localhost:5173').split(',') if o.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=False,
                    allow_methods=['GET', 'POST'], allow_headers=['Content-Type'])
+app.include_router(live_router)
 SCENARIO_DIR = Path(__file__).parent / 'scenarios'
 
 @app.get('/api/health')

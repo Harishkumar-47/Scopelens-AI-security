@@ -10,6 +10,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      LLM_ENABLED: ${LLM_ENABLED:-false}
+      LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL:-qwen3:4b}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
       interval: 20s
@@ -23,3 +26,12 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["live-model"]
+    volumes:
+      - ollama_models:/root/.ollama
+    expose:
+      - "11434"
+volumes:
+  ollama_models:
