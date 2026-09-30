@@ -1,0 +1,1 @@
+{"name":"DevOps Agent","purpose":"Fix application issues and deploy updates.","provider":"generic","permissions":["github.contents.read","github.contents.write","aws.secretsmanager.GetSecretValue","github.actions.trigger","cloud.deploy"]}

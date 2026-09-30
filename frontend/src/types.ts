@@ -1,0 +1,5 @@
+export type Agent = { name: string; purpose: string; provider: string; permissions: string[]; manifest?: Record<string, unknown> }
+export type Risk = { id: string; name: string; severity: string; required_capabilities: string[]; path: string[] }
+export type Graph = { nodes: { id: string; label: string; kind: string; severity?: string }[]; edges: { id: string; source: string; target: string; kind: string; dangerous?: boolean }[]; metadata: { reachable_sensitive_resources: string[]; reachable_outcomes: string[]; shortest_paths: Record<string, string[][]> } }
+export type AnalysisResult = { agent: Agent; score: number; severity: string; capabilities: string[]; normalized_permissions: { permission: string; capability: string | null }[]; risks: Risk[]; graph: Graph; alignment: { permission: string; status: string }[]; recommendations: { permission: string; reason: string }[]; unknown_permissions: string[] }
+export type SimulationResult = { before: AnalysisResult; after: AnalysisResult; difference: { score_change: number; removed_risks: string[]; removed_permission: string } }

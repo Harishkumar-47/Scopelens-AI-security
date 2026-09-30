@@ -1,0 +1,1 @@
+{"name":"Support Agent","purpose":"Answer customer support tickets and create support tickets.","provider":"generic","permissions":["customer.read","drive.read","email.send_external","ticket.create","github.read"]}

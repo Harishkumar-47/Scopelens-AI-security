@@ -1,0 +1,1 @@
+{"name":"Finance Agent","purpose":"Read invoices and prepare payments.","provider":"generic","permissions":["invoice.read","payments.create","payments.approve"]}

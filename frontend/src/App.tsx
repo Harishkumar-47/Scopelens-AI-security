@@ -1,0 +1,10 @@
+import { NavLink, Route, Routes } from 'react-router-dom'
+import { Crosshair, Github, ShieldCheck } from 'lucide-react'
+import Landing from './pages/Landing'
+import NewAnalysis from './pages/NewAnalysis'
+import Analysis from './pages/Analysis'
+import Compare from './pages/Compare'
+import Scenarios from './pages/Scenarios'
+export default function App() {
+  return <div className="app-shell"><header className="site-header"><NavLink to="/" className="brand"><span className="brand-icon"><Crosshair size={23}/></span><span>Scope<span className="accent">Lens</span></span></NavLink><nav><NavLink to="/">Dashboard</NavLink><NavLink to="/new">New Analysis</NavLink><NavLink to="/scenarios">Scenarios</NavLink><NavLink to="/compare">Compare</NavLink><NavLink to="/about">About</NavLink></nav><a className="header-link" href="https://github.com/Harishkumar-47/Scopelens-AI-security" target="_blank" rel="noreferrer"><Github size={18}/><span>GitHub</span></a></header><main><Routes><Route path="/" element={<Landing/>}/><Route path="/new" element={<NewAnalysis/>}/><Route path="/analysis" element={<Analysis/>}/><Route path="/compare" element={<Compare/>}/><Route path="/scenarios" element={<Scenarios/>}/><Route path="/about" element={<section className="page narrow"><div className="eyebrow"><ShieldCheck size={16}/> THE MISSION</div><h1>Permission review, with context.</h1><p className="lead">ScopeLens shows what an AI agent can do when individual permissions are combined. Deterministic rules identify risk chains, then a what-if simulator shows how removing access changes the blast radius.</p><div className="panel"><h2>How it works</h2><p>Permissions → normalized capabilities → capability graph → risk rules → score and recommendations. Optional AI can explain findings, but never decides whether a risk exists.</p><p className="muted">Hackathon prototype. Provider imports cover a documented subset; this is a design aid, not a replacement for provider-native controls.</p></div></section>}/></Routes></main><footer><span>© ScopeLens · Hackathon prototype</span><span>Before you give an AI agent access, see the blast radius.</span></footer></div>
+}
