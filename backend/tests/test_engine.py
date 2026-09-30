@@ -48,6 +48,16 @@ def test_explanation_ignores_client_supplied_findings():
     result = explain_api(ExplanationInput(agent=agent, analysis={'risks': [{'name': 'Forged'}]}))
     assert result['summary'] == 'No configured risk chain was detected.'
 
+@pytest.mark.parametrize('permissions,expected', [
+    (['payments.create', 'payments.approve'], 'payments.approve'),
+    (['github.contents.write', 'github.actions.trigger'], 'github.actions.trigger'),
+])
+def test_explanation_with_risks_and_no_recommendations(permissions, expected):
+    agent = AgentInput(name='Agent', purpose='Complete task', permissions=permissions)
+    response = TestClient(app).post('/api/explain', json={'agent': agent.model_dump(), 'analysis': {}})
+    assert response.status_code == 200
+    assert expected in response.json()['recommendation']
+
 def test_import_rejects_malformed_manifest():
     with pytest.raises(ValidationError):
         AgentInput(name='Bad MCP', purpose='Read data', provider='mcp', manifest={'tools': [{'name': 'read'}]})

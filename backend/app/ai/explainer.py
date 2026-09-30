@@ -10,10 +10,12 @@ def fallback(analysis: dict) -> dict:
                 'purpose_alignment': 'Check the permission alignment list against the agent purpose.',
                 'recommendation': 'Keep only the permissions needed for the core task.', 'source': 'deterministic-template'}
     top = risks[0]
+    recommended = next((item['permission'] for item in analysis.get('recommendations', [])
+                        if item.get('permission')), top['path'][-2])
     return {'summary': f"{top['name']} is possible with the current permissions.",
             'why_it_matters': f"The combination of {', '.join(top['required_capabilities'])} creates this path.",
             'purpose_alignment': 'Review whether each permission is needed for the stated purpose.',
-            'recommendation': f"Consider removing {analysis.get('recommendations', [{}])[0].get('permission', top['path'][-2])} and simulate the result.",
+            'recommendation': f"Consider removing {recommended} and simulate the result.",
             'source': 'deterministic-template'}
 
 def explain(agent: AgentInput, analysis: dict) -> dict:
