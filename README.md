@@ -55,14 +55,14 @@ The default is **Lightweight Mode**: frontend + backend, with reliable **DEMO RE
 
 ### Optional local model mode
 
-Qwen3 4B through Ollama is supported as an optional tool-selection provider. It never executes tools directly. Model output is validated and every request goes through the Tool Gateway. Enable it only on a machine with adequate resources:
+Qwen3 0.6B through Ollama is supported as an optional tool-selection provider. It never executes tools directly. Model output is validated and every request goes through the Tool Gateway. Enable it only on a machine with adequate resources:
 
 ```bash
 docker compose --profile live-model up -d --build
-docker compose --profile live-model exec ollama ollama pull qwen3:4b
+docker compose --profile live-model exec ollama ollama pull qwen3:0.6b
 ```
 
-Set `LLM_ENABLED=true` in `.env`, then restart the backend. The Live model selector offers Qwen3 only for the Code demo when the local model is installed and enabled. Qwen appears as ready only when Ollama reports that model installed. If Qwen fails during a selected run, the UI reports the failure; select **Demo AI** and reset to use replay mode. Model weights are never downloaded during image builds. `llama3.2:3b` can be used by setting `LOCAL_LLM_MODEL` and pulling that model separately.
+Set `LLM_ENABLED=true` in `.env`, then restart the backend. The Live model selector offers Qwen3 only for the Code demo when the local model is installed and enabled. Qwen appears as ready only when Ollama reports that model installed. On CPU-only machines, the first run can take several minutes while Ollama loads the model; ScopeLens keeps the loaded model in memory for later runs. If Qwen fails during a selected run, the UI reports the failure; select **Demo AI** and reset to use replay mode. Model weights are never downloaded during image builds. `llama3.2:3b` can be used by setting `LOCAL_LLM_MODEL` and pulling that model separately.
 
 For local development, install Python dependencies from `backend/requirements.txt`, run `uvicorn app.main:app --reload` in `backend`, then run `npm install && npm run dev` in `frontend`.
 
@@ -70,7 +70,7 @@ For local development, install Python dependencies from `backend/requirements.tx
 
 `AI_ENABLED=false` is the default. To enable explanations set `AI_ENABLED=true`, `AI_PROVIDER=openai` or `gemini`, and the corresponding key. The app falls back to deterministic templates if the API is unavailable. `BACKEND_PORT`, `FRONTEND_PORT`, and `CORS_ORIGINS` are configurable. `DATABASE_URL` is reserved for future history support; the MVP stores current analyses in browser session storage.
 
-`LLM_ENABLED=false` is independent of explanation AI. `LOCAL_LLM_MODEL=qwen3:4b` and `LLM_BASE_URL=http://ollama:11434` configure local tool selection. The runtime demo works offline in replay mode after dependencies are installed.
+`LLM_ENABLED=false` is independent of explanation AI. `LOCAL_LLM_MODEL=qwen3:0.6b` and `LLM_BASE_URL=http://ollama:11434` configure local tool selection. The runtime demo works offline in replay mode after dependencies are installed.
 
 ## API
 

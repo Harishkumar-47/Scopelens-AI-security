@@ -108,7 +108,7 @@ def test_selected_local_model_actions_go_through_guard(monkeypatch):
         {'tool': 'demo_send', 'target': 'local-demo-sink'}])
     session = create_session(model='local', mode='protected')
     asyncio.run(run_coding_demo(session, delay=0))
-    assert session.model_used == 'qwen3:4b'
+    assert session.model_used == 'qwen3:0.6b'
     assert session.snapshot()['summary']['blocked'] == 2
     assert session.snapshot()['local_sink_count'] == 0
 

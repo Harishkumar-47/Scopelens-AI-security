@@ -26,7 +26,7 @@ The Server delete action is denied even with protection off because the demo exp
 
 ## Optional Qwen
 
-Start the optional Ollama profile, pull `qwen3:4b`, set `LLM_ENABLED=true`, and restart the backend. The selector shows Qwen as **Ready** only when Ollama reports that exact model installed. Qwen can propose Code demo actions; ScopeLens still checks each action. If Qwen fails after selection, the run reports the failure and does not silently switch to Demo AI. Replay mode remains the reliable presentation path.
+Start the optional Ollama profile, pull `qwen3:0.6b`, set `LLM_ENABLED=true`, and restart the backend. The selector shows Qwen as **Ready** only when Ollama reports that exact model installed. Qwen can propose Code demo actions; ScopeLens still checks each action. If Qwen fails after selection, the run reports the failure and does not silently switch to Demo AI. Replay mode remains the reliable presentation path.
 
 ## Analyzer
 
