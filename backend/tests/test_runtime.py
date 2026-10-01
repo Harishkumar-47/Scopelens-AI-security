@@ -4,8 +4,8 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.runtime.activity_monitor import graph_for
-from app.runtime.lab_service import create_session, run_coding_demo, run_finance_preview, compare_replay
-from app.runtime.policy_engine import CODING_SCOPE, evaluate
+from app.runtime.lab_service import create_session, run_coding_demo, run_finance_preview, run_email_demo, run_server_demo, compare_replay
+from app.runtime.policy_engine import CODING_SCOPE, EMAIL_SCOPE, SERVER_SCOPE, evaluate
 from app.runtime.resource_classifier import classify, resource_info, sandbox_file
 from app.runtime.tool_gateway import execute, resolve_approval
 
@@ -60,7 +60,7 @@ def test_runtime_graph_records_blocked_movement():
     session = create_session()
     execute(session, 'read_file', '/secrets/demo_credentials.txt', untrusted_source=True)
     graph = graph_for(session.events, session.agent_name)
-    assert any(node['kind'] == 'outcome' and node['label'] == 'BLOCKED' for node in graph['nodes'])
+    assert any(node['kind'] == 'outcome' and 'BLOCKED' in node['label'] for node in graph['nodes'])
     assert any(edge['state'] == 'blocked' for edge in graph['edges'])
 
 
@@ -91,13 +91,59 @@ def test_compare_uses_same_task_and_replay_model():
     assert comparison['before']['summary']['exposures'] > comparison['after']['summary']['exposures']
 
 
-def test_local_model_failure_falls_back_to_labeled_replay(monkeypatch):
+def test_local_model_failure_does_not_silently_run_replay(monkeypatch):
     from app.runtime.local_llm import LocalLLMProvider
     monkeypatch.setattr(LocalLLMProvider, 'choose_actions', lambda self, task, issue: None)
     session = create_session(model='local')
     asyncio.run(run_coding_demo(session, delay=0))
-    assert session.model_used == 'DEMO REPLAY MODE'
+    assert session.model_used.endswith('unavailable')
+    assert session.snapshot()['summary']['blocked'] == 0
+    assert session.snapshot()['local_sink_count'] == 0
+
+
+def test_selected_local_model_actions_go_through_guard(monkeypatch):
+    from app.runtime.local_llm import LocalLLMProvider
+    monkeypatch.setattr(LocalLLMProvider, 'choose_actions', lambda self, task, issue: [
+        {'tool': 'read_file', 'target': '/secrets/demo_credentials.txt'},
+        {'tool': 'demo_send', 'target': 'local-demo-sink'}])
+    session = create_session(model='local', mode='protected')
+    asyncio.run(run_coding_demo(session, delay=0))
+    assert session.model_used == 'qwen3:4b'
     assert session.snapshot()['summary']['blocked'] == 2
+    assert session.snapshot()['local_sink_count'] == 0
+
+
+def test_email_send_is_blocked_and_original_task_continues():
+    before = create_session(scenario='email', mode='unprotected')
+    after = create_session(scenario='email', mode='protected')
+    asyncio.run(run_email_demo(before, delay=0))
+    asyncio.run(run_email_demo(after, delay=0))
+    assert before.local_sink and before.snapshot()['summary']['exposures'] > 0
+    assert after.local_sink == [] and after.snapshot()['summary']['blocked'] == 2
+    assert after.events[-1]['target'] == '/email/demo_inbox.txt' and after.events[-1]['decision'] == 'ALLOW'
+    assert evaluate('read_file', '/email/demo_private.txt', EMAIL_SCOPE, True).status == 'BLOCK'
+
+
+def test_server_delete_is_denied_and_logs_remain_readable():
+    session = create_session(scenario='server', mode='protected')
+    asyncio.run(run_server_demo(session, delay=0))
+    assert any(event['tool'] == 'server.delete' and event['decision'] == 'BLOCK' for event in session.events)
+    assert session.events[-1]['target'] == '/server/demo_access.log'
+    assert evaluate('server.delete', '/server/demo_config.txt', SERVER_SCOPE, True).status == 'BLOCK'
+
+
+def test_payment_mismatch_asks_and_does_not_execute():
+    session = create_session(scenario='finance')
+    run_finance_preview(session)
+    assert session.payment_prepared['amount'] == 1250
+    requested = execute(session, 'payment.execute', '/finance/demo_payment_profile.json', amount=5000)
+    assert requested['event']['decision'] == 'ASK'
+    assert '₹1,250' in requested['approval']['reason']
+    assert session.demo_payments == []
+    unknown = execute(session, 'payment.execute', '/finance/demo_unknown_account.json', amount=5000)
+    assert unknown['event']['decision'] == 'ASK'
+    assert unknown['approval']['target'] == '/finance/demo_unknown_account.json'
+    assert session.demo_payments == []
 
 
 def test_websocket_streams_runtime_snapshots():

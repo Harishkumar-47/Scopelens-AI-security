@@ -2,22 +2,24 @@ import asyncio
 from typing import Literal
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
+from app.runtime.local_llm import LocalLLMProvider
 
 from app.runtime.lab_service import (SESSIONS, DEFAULT_TASK, create_session, run_coding_demo,
-                                     run_finance_preview, request_action, approve_action, compare_replay)
+                                     run_finance_preview, run_email_demo, run_server_demo,
+                                     request_action, approve_action, compare_replay)
 
 router = APIRouter(prefix='/api/live', tags=['Live Lab'])
 
 
 class SessionCreate(BaseModel):
-    scenario: Literal['coding', 'finance'] = 'coding'
+    scenario: Literal['coding', 'finance', 'email', 'server'] = 'coding'
     mode: Literal['protected', 'unprotected'] = 'protected'
     task: str = Field(default=DEFAULT_TASK, min_length=1, max_length=500)
     model: Literal['replay', 'local'] = 'replay'
 
 
 class ActionRequest(BaseModel):
-    tool: Literal['read_file', 'demo_send', 'payment.preview', 'payment.prepare', 'payment.execute']
+    tool: Literal['read_file', 'demo_send', 'payment.preview', 'payment.prepare', 'payment.execute', 'server.delete']
     target: str = Field(min_length=1, max_length=300)
     amount: int | None = Field(default=None, ge=1, le=100000)
 
@@ -35,9 +37,10 @@ def get_session(session_id: str):
 
 @router.get('/config')
 def config():
-    from app.runtime.local_llm import LocalLLMProvider
     provider = LocalLLMProvider()
-    return {'default_model': provider.model, 'local_model_enabled': provider.enabled,
+    status = provider.status()
+    return {'default_model': provider.model, 'local_model_enabled': status['ready'],
+            'local_model_status': 'ready' if status['ready'] else 'not_installed',
             'replay_available': True, 'sandbox_only': True}
 
 
@@ -49,6 +52,10 @@ def tools_catalog():
 
 @router.post('/sessions')
 def new_session(body: SessionCreate):
+    if body.model == 'local' and body.scenario != 'coding':
+        raise HTTPException(422, 'Local AI is available for the Code demo only')
+    if body.model == 'local' and not LocalLLMProvider().status()['ready']:
+        raise HTTPException(409, 'Qwen is not installed or Ollama is unavailable. Select Demo AI.')
     session = create_session(body.scenario, body.mode, body.task, body.model)
     return session.snapshot()
 
@@ -70,6 +77,14 @@ async def run_session(session_id: str):
         raise HTTPException(409, 'Session already started')
     if session.scenario == 'finance':
         run_finance_preview(session)
+    elif session.scenario == 'email':
+        session.running = True
+        session.publish()
+        asyncio.create_task(run_email_demo(session))
+    elif session.scenario == 'server':
+        session.running = True
+        session.publish()
+        asyncio.create_task(run_server_demo(session))
     else:
         session.running = True
         session.publish()

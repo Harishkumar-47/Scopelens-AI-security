@@ -3,6 +3,8 @@ from app.runtime.resource_classifier import resource_info, sandbox_file
 
 CODING_SCOPE = ('/workspace/github-project/**',)
 FINANCE_SCOPE = ('/finance/demo_invoice.json', '/finance/demo_payment_profile.json')
+EMAIL_SCOPE = ('/email/demo_inbox.txt',)
+SERVER_SCOPE = ('/server/demo_access.log',)
 TOOL_DEFINITIONS = {
     'read_file': {'description': 'Read a synthetic sandbox file', 'capability': 'FILE_READ',
                   'risk_level': 'CONTEXTUAL', 'allowed_paths': list(CODING_SCOPE), 'requires_approval': False},
@@ -15,6 +17,9 @@ TOOL_DEFINITIONS = {
     'payment.execute': {'description': 'Simulate a fake payment after one-time approval',
                         'capability': 'PAYMENT_APPROVE', 'risk_level': 'HIGH',
                         'allowed_paths': list(FINANCE_SCOPE), 'requires_approval': True},
+    'server.delete': {'description': 'Attempt a synthetic destructive server action',
+                      'capability': 'DATA_DELETE', 'risk_level': 'CRITICAL',
+                      'allowed_paths': [], 'requires_approval': False},
 }
 
 
@@ -58,4 +63,6 @@ def evaluate(tool: str, target: str, scope: tuple[str, ...], protected: bool,
         return Decision('ALLOW', 'INFO', 'Preparing a synthetic payment does not execute it.', 'FINANCIAL', False)
     if tool == 'payment.execute':
         return Decision('ASK', 'HIGH', 'Every demo payment requires a one-time human approval.', 'FINANCIAL', False)
+    if tool == 'server.delete':
+        return Decision('BLOCK', 'CRITICAL', 'This AI may read demo logs but cannot delete server data.', 'SYSTEM', True)
     return Decision('BLOCK', 'HIGH', 'Unknown tool is not available through the ScopeLens gateway.', classification, outside)

@@ -1,25 +1,48 @@
 from datetime import datetime, timezone
 
-AUTHORITY = [
-    ('/workspace/github-project', 'Project', 'allowed'),
-    ('/home/Documents', 'Documents', 'warning'),
-    ('/home/.env', 'Environment file', 'critical'),
-    ('/home/.ssh/id_demo', 'Demo SSH key', 'critical'),
-    ('/secrets/demo_credentials.txt', 'Demo credentials', 'critical'),
-]
+AUTHORITY = {
+    'coding': [('/workspace/github-project', '📁 My Project', 'allowed'),
+               ('/home/Documents', '📄 Private Files', 'warning'),
+               ('/home/.env', '🔑 Passwords', 'critical'),
+               ('/home/.ssh/id_demo', '🔑 Demo Key', 'critical'),
+               ('/secrets/demo_credentials.txt', '🔑 Demo Password', 'critical')],
+    'finance': [('/finance/demo_invoice.json', '📄 Electricity Bill', 'allowed'),
+                ('/finance/demo_payment_profile.json', '🏦 Demo Bank', 'allowed')],
+    'email': [('/email/demo_inbox.txt', '📧 My Emails', 'allowed'),
+              ('/email/demo_private.txt', '📄 Private Email', 'critical')],
+    'server': [('/server/demo_access.log', '📋 Website Logs', 'allowed'),
+               ('/server/demo_config.txt', '🖥 Server Settings', 'critical')],
+}
+RESOURCE_LABELS = {
+    '/workspace/github-project/app.py': '📄 Project Code',
+    '/workspace/github-project/issue.txt': '📄 Untrusted File',
+    '/workspace/github-project/README.md': '📁 My Project',
+    '/secrets/demo_credentials.txt': '🔑 Demo Password',
+    'local-demo-sink': '📤 Local Demo Receiver',
+    '/finance/demo_invoice.json': '📄 Fake Invoice',
+    '/finance/demo_payment_profile.json': '🏦 Demo Bank',
+    '/email/demo_inbox.txt': '📧 Untrusted Email',
+    '/email/demo_private.txt': '📄 Private Email',
+    '/server/demo_access.log': '📋 Untrusted Log',
+    '/server/demo_config.txt': '🖥 Server Settings',
+}
+TOOL_LABELS = {'read_file': 'Open file', 'demo_send': 'Send data',
+               'payment.preview': 'Check bill', 'payment.prepare': 'Prepare payment',
+               'payment.execute': '💸 Send ₹5,000', 'server.delete': 'Delete settings'}
 
 
 def timestamp() -> str:
     return datetime.now(timezone.utc).isoformat(timespec='seconds')
 
 
-def graph_for(events: list[dict], agent_name: str) -> dict:
-    nodes = [{'id': 'developer', 'label': 'Developer', 'kind': 'person', 'state': 'neutral'},
-             {'id': 'agent', 'label': agent_name, 'kind': 'agent', 'state': 'neutral'}]
+def graph_for(events: list[dict], agent_name: str, scenario: str = 'coding') -> dict:
+    nodes = [{'id': 'developer', 'label': '👤 User' if scenario != 'finance' else '👤 Priya', 'kind': 'person', 'state': 'neutral'},
+             {'id': 'agent', 'label': f'🤖 {agent_name}', 'kind': 'agent', 'state': 'neutral'}]
     edges = [{'id': 'developer-agent', 'source': 'developer', 'target': 'agent', 'state': 'neutral'}]
-    for path, label, state in AUTHORITY:
+    first_path = AUTHORITY[scenario][0][0]
+    for path, label, state in AUTHORITY[scenario]:
         node_id = f'authority:{path}'
-        latent = path != '/workspace/github-project'
+        latent = path != first_path and state != 'allowed'
         nodes.append({'id': node_id, 'label': label, 'kind': 'authority', 'state': state, 'path': path, 'latent': latent})
         edges.append({'id': f'agent-{node_id}', 'source': 'agent', 'target': node_id,
                       'state': state, 'latent': latent})
@@ -29,9 +52,9 @@ def graph_for(events: list[dict], agent_name: str) -> dict:
         tool_id = f"tool:{event['id']}"
         resource_id = f"resource:{event['target']}"
         state = {'ALLOW': 'allowed', 'ASK': 'approval', 'BLOCK': 'blocked'}.get(event['decision'], 'neutral')
-        nodes.append({'id': tool_id, 'label': event['tool'], 'kind': 'tool', 'state': state})
+        nodes.append({'id': tool_id, 'label': TOOL_LABELS.get(event['tool'], event['tool']), 'kind': 'tool', 'state': state})
         if not any(node['id'] == resource_id for node in nodes):
-            nodes.append({'id': resource_id, 'label': event['target'].split('/')[-1] or event['target'],
+            nodes.append({'id': resource_id, 'label': RESOURCE_LABELS.get(event['target'], event['target'].split('/')[-1] or event['target']),
                           'kind': 'destination' if event['target'] == 'local-demo-sink' else 'resource',
                           'state': state, 'path': event['target']})
         edges.extend([
@@ -45,11 +68,14 @@ def graph_for(events: list[dict], agent_name: str) -> dict:
                 issue_node['kind'] = 'untrusted'
                 issue_node['state'] = 'warning'
             else:
-                nodes.append({'id': issue_id, 'label': 'issue.txt', 'kind': 'untrusted', 'state': 'warning'})
-            edges.append({'id': f'issue-{tool_id}', 'source': issue_id, 'target': tool_id, 'state': 'warning'})
+                source = {'finance': '/finance/demo_invoice.json', 'email': '/email/demo_inbox.txt',
+                          'server': '/server/demo_access.log'}.get(scenario, '/workspace/github-project/issue.txt')
+                issue_id = f'resource:{source}'
+                nodes.append({'id': issue_id, 'label': RESOURCE_LABELS[source], 'kind': 'untrusted', 'state': 'warning'})
+            edges.append({'id': f'issue-agent-{event["id"]}', 'source': issue_id, 'target': 'agent', 'state': 'warning'})
         if event['tool'] == 'read_file' and event.get('exposure'):
             if not any(node['id'] == 'agent-memory' for node in nodes):
-                nodes.append({'id': 'agent-memory', 'label': 'Agent memory', 'kind': 'memory', 'state': 'critical'})
+                nodes.append({'id': 'agent-memory', 'label': '🤖 AI has data', 'kind': 'memory', 'state': 'critical'})
             edges.append({'id': f'{resource_id}-memory', 'source': resource_id,
                           'target': 'agent-memory', 'state': 'critical'})
         if event['tool'] == 'demo_send' and event.get('exposure'):
@@ -57,11 +83,11 @@ def graph_for(events: list[dict], agent_name: str) -> dict:
                           'target': tool_id, 'state': 'critical'})
         if event['decision'] == 'BLOCK':
             outcome_id = f"blocked:{event['id']}"
-            nodes.append({'id': outcome_id, 'label': 'BLOCKED', 'kind': 'outcome', 'state': 'blocked'})
+            nodes.append({'id': outcome_id, 'label': '🛡 BLOCKED', 'kind': 'outcome', 'state': 'blocked'})
             edges.append({'id': f'{tool_id}-{outcome_id}', 'source': tool_id, 'target': outcome_id, 'state': 'blocked'})
         elif event.get('exposure'):
             outcome_id = f"exposure:{event['id']}"
-            nodes.append({'id': outcome_id, 'label': 'Simulated exposure', 'kind': 'outcome', 'state': 'critical'})
+            nodes.append({'id': outcome_id, 'label': 'Demo data exposed', 'kind': 'outcome', 'state': 'critical'})
             edges.append({'id': f'{tool_id}-{outcome_id}', 'source': tool_id, 'target': outcome_id, 'state': 'critical'})
     return {'nodes': nodes, 'edges': edges}
 

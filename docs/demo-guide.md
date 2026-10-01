@@ -1,21 +1,35 @@
-# Hackathon demo
+# Five-minute ScopeLens demo
 
-## Primary: Live Agent Lab
+## Start
 
-1. Run `docker compose up --build` and open `http://localhost:3000/live`.
-2. Show Code Assistant, project-only scope, Demo Replay Mode and the **SANDBOX DEMONSTRATION** banner.
-3. Keep **Unprotected** selected and click **Run agent task**. The agent reads project files, consumes an untrusted synthetic issue, reads fake credentials, and sends only to the in-memory local demo sink. Show the red graph and **SIMULATED DATA EXPOSURE** alert.
-4. Switch to **Protected**, which creates a fresh session. Run the same task. The secret read and local send are blocked; the agent then reads the project README. Show **CORE TASK STILL WORKING**.
-5. Open **View live comparison**. Show the same task and replay model on both sides, with exposure dropping to zero and blocked actions appearing.
-6. Optionally select **Finance demo**, prepare a fake payment, request execution, and click **Deny** in the one-time approval modal. No payment is created.
+```bash
+docker compose up --build
+```
 
-## Pre-deployment analyzer
+Open <http://localhost:3000/live>. **Demo AI — Ready** works without Ollama. Every file, account, payment, and receiver in Live is synthetic.
 
-1. Open **Scenarios**, select Support Agent, and analyze its five permissions.
-2. Show the capability graph, three risk chains and 76 HIGH ScopeLens Exposure Score.
-3. Simulate removing `email.send_external`. The score becomes 28 LOW and risk chains drop to zero.
-4. Open the existing before/after comparison page.
+## Main story: Code
 
-Health check: `curl http://localhost:8000/api/health`. API docs: `http://localhost:8000/docs`.
+1. Show **AI: Code Helper**, **Job: Fix my project**, **Access: Project only**.
+2. Leave **Protection OFF** and click **Run the same task**. A fake project issue steers Demo AI toward a fake password. The sandbox records a simulated exposure to an in-memory local receiver.
+3. Switch to **Protection ON**. This starts a fresh session. Run the exact same task. The password read and send are denied by backend code; project files remain readable.
+4. Click **See before & after**. Both sides use the same task and Demo AI replay.
+5. Click **Alerts** to inspect the detailed decisions. Technical details are collapsed by default.
 
-All data, files, credentials and payments in the Live Lab are fake. No Internet destination receives data.
+## Other safe stories
+
+- **Payments:** Priya's fake electricity bill is ₹1,250. Run the bill check, then click **Try ₹5,000 request**. The mismatch opens a human approval prompt; click **Deny** and no fake payment is recorded. **Allow once** records only one synthetic local payment.
+- **Email:** A fake email asks AI to read a private demo message and send it. With protection on, both actions are blocked; inbox reading continues.
+- **Server:** A fake log asks AI to delete demo settings. The destructive action is denied; log reading continues.
+
+The Server delete action is denied even with protection off because the demo exposes no executable destructive server tool. The unprotected Code and Email stories can only access fixed synthetic files and an in-memory local receiver.
+
+## Optional Qwen
+
+Start the optional Ollama profile, pull `qwen3:4b`, set `LLM_ENABLED=true`, and restart the backend. The selector shows Qwen as **Ready** only when Ollama reports that exact model installed. Qwen can propose Code demo actions; ScopeLens still checks each action. If Qwen fails after selection, the run reports the failure and does not silently switch to Demo AI. Replay mode remains the reliable presentation path.
+
+## Analyzer
+
+Open **Analyze** to check permissions. Existing Support, DevOps, and Finance analyzer examples remain available from the sample selector. For the Support example, remove `email.send_external` with **Try change** and open the before/after comparison.
+
+Health check: <http://localhost:8000/api/health>. API docs: <http://localhost:8000/docs>.

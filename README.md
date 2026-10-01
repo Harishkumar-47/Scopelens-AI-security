@@ -2,7 +2,7 @@
 
 **Before you give an AI agent access, see the blast radius. While it runs, watch the movement.**
 
-ScopeLens analyzes an AI agent's potential blast radius before deployment and monitors its actual agentic movements during execution. The Live Lab is a fully synthetic, local sandbox demonstration.
+ScopeLens analyzes an AI agent's potential blast radius before deployment and monitors its actual agentic movements during execution. The Live page is a fully synthetic, local sandbox demonstration.
 
 ## Problem and solution
 
@@ -16,7 +16,9 @@ At runtime, the Tool Gateway evaluates every requested action in code. A prompt-
 
 ## Screenshots
 
-The app includes a landing page, Agent Analyzer, Live Agent Lab, Activity timeline, scenario gallery, and two comparison views.
+The app includes a landing page, Analyze page, Live page, Alerts page, four-story scenario gallery, and two comparison views.
+
+![ScopeLens Live code demo](docs/screenshots/live-light.png)
 
 ![ScopeLens light dashboard](docs/screenshots/dashboard-light.png)
 
@@ -60,7 +62,7 @@ docker compose --profile live-model up -d --build
 docker compose --profile live-model exec ollama ollama pull qwen3:4b
 ```
 
-Set `LLM_ENABLED=true` in `.env`, then restart the backend. The Live Lab model selector will offer Qwen3. If Ollama is unavailable, the run explicitly falls back to **DEMO REPLAY MODE**. Model weights are never downloaded during image builds. `llama3.2:3b` can be used by setting `LOCAL_LLM_MODEL` and pulling that model separately.
+Set `LLM_ENABLED=true` in `.env`, then restart the backend. The Live model selector offers Qwen3 only for the Code demo when the local model is installed and enabled. Qwen appears as ready only when Ollama reports that model installed. If Qwen fails during a selected run, the UI reports the failure; select **Demo AI** and reset to use replay mode. Model weights are never downloaded during image builds. `llama3.2:3b` can be used by setting `LOCAL_LLM_MODEL` and pulling that model separately.
 
 For local development, install Python dependencies from `backend/requirements.txt`, run `uvicorn app.main:app --reload` in `backend`, then run `npm install && npm run dev` in `frontend`.
 
@@ -82,7 +84,7 @@ For local development, install Python dependencies from `backend/requirements.tx
 | `GET /api/providers` | List supported adapters |
 | `POST /api/import` | Validate and analyze imported JSON |
 | `GET /api/health` | Health status |
-| `POST /api/live/sessions` | Create a coding or finance lab session |
+| `POST /api/live/sessions` | Create a Code, Payments, Email, or Server demo session |
 | `GET /api/live/tools` | Declared synthetic tool capabilities and approval metadata |
 | `POST /api/live/sessions/{id}/run` | Run the sandbox task |
 | `GET /api/live/sessions/{id}` | Current activity, graph, alerts and score |

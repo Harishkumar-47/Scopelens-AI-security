@@ -138,3 +138,55 @@ footer { border-color: var(--border); color: var(--muted); }
 @media (max-width: 1180px) { .site-header { gap: 14px; }.site-header nav { gap: 11px; }.site-header nav a { font-size: 11px; }.live-grid { grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr); }.live-risk-panel { grid-column: 1 / -1; }.live-risk-panel .alert-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; } }
 @media (max-width: 850px) { .site-header { flex-wrap: wrap; height: auto; padding: 12px 20px; }.site-header nav { order: 3; width: 100%; overflow-x: auto; padding: 5px 0; }.header-actions { margin-left: auto; }.dashboard-hero, .product-split, .live-compare-grid { grid-template-columns: 1fr; }.live-grid { grid-template-columns: 1fr; }.live-risk-panel { grid-column: auto; }.live-summary { grid-template-columns: 1fr 1fr; }.live-summary>div:nth-child(2) { border-right: 0; }.live-summary>div:nth-child(-n+2) { border-bottom: 1px solid var(--border); } }
 @media (max-width: 620px) { .page { padding-left: 18px; padding-right: 18px; }.live-heading { display: block; }.live-heading .button { margin-top: 18px; }.live-toolbar { display: block; }.lab-selector { margin-bottom: 10px; }.lab-selector button { flex: 1; justify-content: center; }.live-toolbar select { width: 100%; }.live-summary { grid-template-columns: 1fr 1fr; }.live-summary>div { padding: 12px; }.live-summary strong { font-size: 10px; }.live-card-title { flex-wrap: wrap; }.live-graph { height: 360px; }.demo-steps, .activity-stats { grid-template-columns: 1fr; }.timeline-item, .activity-row { grid-template-columns: 70px 60px minmax(0, 1fr); gap: 7px; }.activity-row .risk-severity { display: none; }.preview-bottom { flex-wrap: wrap; }.preview-flow { gap: 4px; }.preview-flow>div:not(.preview-line) { min-width: 70px; }.preview-line { width: 16px; }.comparison-outcome { flex-direction: column; }.graph-caption { flex-direction: column; } }
+
+/* Clear, judge-friendly Live story */
+.scenario-selector { flex-wrap: wrap; }
+.scenario-selector button { min-width: 78px; justify-content: center; }
+.live-page .live-grid { grid-template-columns: minmax(0, 1.45fr) minmax(280px, .9fr) minmax(270px, .8fr); }
+.live-page .live-graph { height: 470px; }
+.story-alert { margin: 18px 0; padding: 19px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
+.story-alert.block, .story-alert.allow { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); background: var(--danger-soft); }
+.story-alert.ask { border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); background: var(--warning-soft); }
+.story-alert-icon { font-size: 26px; margin-bottom: 11px; }
+.story-alert strong { display: block; font-size: 16px; line-height: 1.35; color: var(--text); }
+.story-alert p { font-size: 12px; margin: 12px 0; }
+.story-alert details, .approval-modal details, .alert-feed-item details, .about-page details { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 12px; font-size: 11px; color: var(--muted); }
+.story-alert summary, .approval-modal summary, .alert-feed-item summary, .about-page summary { cursor: pointer; font-weight: 700; }
+.story-alert details small { display: block; margin-top: 8px; overflow-wrap: anywhere; }
+.live-verdict { margin: 12px 0 20px; border-radius: 8px; padding: 14px; font-weight: 800; font-size: 12px; letter-spacing: .04em; }
+.live-verdict.danger { background: var(--danger-soft); color: var(--danger); }
+.live-verdict.safe { background: var(--safe-soft); color: var(--safe); }
+.live-verdict.neutral { background: var(--surface-soft); color: var(--text); }
+.watching-copy { font-size: 13px; line-height: 1.6; padding: 20px 0; }
+.model-note { font-size: 11px; margin-top: 15px; }
+.live-risk-panel .text-button { margin-top: auto; }
+.alert-feed { display: grid; gap: 12px; margin: 25px 0; }
+.alert-feed-item { padding: 19px 22px; border-left: 4px solid var(--border); }
+.alert-feed-item.block { border-left-color: var(--danger); }
+.alert-feed-item.exposure { border-left-color: var(--danger); }
+.status-chip.exposure { background: var(--danger-soft); color: var(--danger); }
+.alert-feed-item.ask { border-left-color: var(--warning); }
+.alert-feed-item.allow { border-left-color: var(--safe); }
+.alert-feed-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.alert-feed-top strong { font-size: 15px; }
+.alert-feed-item p { margin: 8px 0; font-size: 13px; }
+.alert-feed-item>small { color: var(--faint); font-size: 11px; }
+.alert-feed-item code { display: block; overflow-wrap: anywhere; margin-top: 8px; }
+.simple-scenario { min-height: 265px; display: flex; flex-direction: column; }
+.simple-scenario .scenario-icon { font-size: 27px; }
+.simple-scenario .text-button { margin-top: auto; }
+@media (max-width: 1180px) { .live-page .live-grid { grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr); } .live-page .live-risk-panel { grid-column: 1 / -1; } }
+@media (max-width: 850px) { .live-page .live-grid { grid-template-columns: 1fr; } .live-page .live-risk-panel { grid-column: auto; } }
+@media (max-width: 620px) { .scenario-selector { width: 100%; } .scenario-selector button { min-width: 0; } .live-page .live-graph { height: 390px; } }
+.scenario-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1050px) { .scenario-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .scenario-grid { grid-template-columns: 1fr; } }
+/* Keep the action and graph visible together on a demo screen. */
+.live-page { padding-top: 35px; }
+.live-heading { margin-bottom: 18px; }
+.live-heading-actions { display: flex; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+.live-heading-actions .button { white-space: nowrap; }
+.live-heading h1 { font-size: clamp(2.2rem, 3.4vw, 3.15rem); }
+.live-page .live-graph, .live-page .initial-graph { height: 340px; }
+@media (max-width: 620px) { .live-page { padding-top: 25px; } .live-page .live-graph, .live-page .initial-graph { height: 320px; } .live-heading-actions { justify-content: flex-start; } .live-heading-actions .button { margin-top: 12px; } }
+@media (max-width: 620px) { .scenario-selector button { font-size: 10px; padding: 9px 5px; white-space: nowrap; } }

@@ -12,11 +12,26 @@ class LocalLLMProvider:
         self.model = os.getenv('LOCAL_LLM_MODEL', 'qwen3:4b')
         self.base_url = os.getenv('LLM_BASE_URL', 'http://ollama:11434').rstrip('/')
 
+    def status(self) -> dict:
+        """Only advertise a model that Ollama confirms is installed."""
+        if not self.enabled or not self._safe_url():
+            return {'model': self.model, 'ready': False}
+        try:
+            with urllib.request.urlopen(self.base_url + '/api/tags', timeout=2) as response:
+                models = json.load(response).get('models', [])
+            return {'model': self.model, 'ready': any(item.get('name') == self.model for item in models)}
+        except (OSError, ValueError, KeyError):
+            return {'model': self.model, 'ready': False}
+
+    def _safe_url(self) -> bool:
+        parsed_url = urllib.parse.urlparse(self.base_url)
+        return parsed_url.scheme == 'http' and parsed_url.hostname in (
+            'ollama', 'localhost', '127.0.0.1', 'host.docker.internal')
+
     def choose_actions(self, task: str, issue: str) -> list[dict] | None:
         if not self.enabled:
             return None
-        parsed_url = urllib.parse.urlparse(self.base_url)
-        if parsed_url.scheme != 'http' or parsed_url.hostname not in ('ollama', 'localhost', '127.0.0.1', 'host.docker.internal'):
+        if not self._safe_url():
             return None
         prompt = ('You are a demo coding assistant. The user asked: ' + task + '\n'
                   'You read this untrusted issue content:\n' + issue + '\n'
@@ -28,7 +43,7 @@ class LocalLLMProvider:
         try:
             request = urllib.request.Request(self.base_url + '/api/chat', json.dumps(data).encode(),
                                              {'Content-Type': 'application/json'})
-            with urllib.request.urlopen(request, timeout=12) as response:
+            with urllib.request.urlopen(request, timeout=60) as response:
                 output = json.load(response)
             parsed = json.loads(output['message']['content'])
             actions = parsed.get('actions', [])

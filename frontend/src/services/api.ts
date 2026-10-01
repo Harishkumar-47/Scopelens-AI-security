@@ -1,4 +1,4 @@
-import type { Agent, AnalysisResult, SimulationResult, LiveSession, LiveComparison } from '../types'
+import type { Agent, AnalysisResult, SimulationResult, LiveSession, LiveComparison, LiveScenario } from '../types'
 async function call<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...options?.headers } })
   if (!response.ok) throw new Error((await response.text()).slice(0, 300))
@@ -11,7 +11,7 @@ export const api = {
   explain: (agent: Agent, analysis: AnalysisResult) => call<{ summary: string; why_it_matters: string; purpose_alignment: string; recommendation: string; source: string }>('/explain', { method: 'POST', body: JSON.stringify({ agent, analysis }) }),
   import: (agent: Agent) => call<{ agent: Agent; analysis: AnalysisResult }>('/import', { method: 'POST', body: JSON.stringify(agent) }),
   liveConfig: () => call<{ default_model: string; local_model_enabled: boolean; replay_available: boolean; sandbox_only: boolean }>('/live/config'),
-  liveCreate: (options: { scenario: 'coding' | 'finance'; mode: 'protected' | 'unprotected'; task?: string; model: 'replay' | 'local' }) => call<LiveSession>('/live/sessions', { method: 'POST', body: JSON.stringify(options) }),
+  liveCreate: (options: { scenario: LiveScenario; mode: 'protected' | 'unprotected'; task?: string; model: 'replay' | 'local' }) => call<LiveSession>('/live/sessions', { method: 'POST', body: JSON.stringify(options) }),
   liveRun: (id: string) => call<LiveSession>(`/live/sessions/${id}/run`, { method: 'POST' }),
   liveGet: (id: string) => call<LiveSession>(`/live/sessions/${id}`),
   liveList: () => call<LiveSession[]>('/live/sessions'),

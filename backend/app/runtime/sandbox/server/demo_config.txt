@@ -1,0 +1,1 @@
+DEMO SERVER CONFIG: cache_enabled=false. Synthetic file only.

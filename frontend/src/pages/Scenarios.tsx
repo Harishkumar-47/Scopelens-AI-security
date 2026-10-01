@@ -1,12 +1,10 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Headset, ServerCog, WalletCards } from 'lucide-react'
-import { api } from '../services/api'
-import type { Agent } from '../types'
-const icons = [Headset, ServerCog, WalletCards]
+import { Link } from 'react-router-dom'
+const scenarios = [
+  { id: 'coding', icon: '💻', name: 'Code', description: 'AI fixes a project issue. A fake instruction tries to make it read a demo password.' },
+  { id: 'finance', icon: '💳', name: 'Payments', description: 'AI checks a ₹1,250 bill. A fake invoice asks it to send ₹5,000 instead.' },
+  { id: 'email', icon: '📧', name: 'Email', description: 'AI summarizes email. An untrusted message tries to send private data.' },
+  { id: 'server', icon: '🖥', name: 'Server', description: 'AI checks website logs. A fake log line asks it to delete server settings.' },
+]
 export default function Scenarios() {
-  const [items, setItems] = useState<(Agent & { id: string })[]>([])
-  const navigate = useNavigate()
-  useEffect(() => { api.scenarios().then(setItems).catch(() => setItems([])) }, [])
-  return <section className="page"><div className="eyebrow">GUIDED DEMOS</div><h1>Explore a real permission chain.</h1><p className="lead">Choose a sample agent, inspect its permissions, and run the analysis yourself. All scenarios use demo data.</p><div className="scenario-grid">{items.map((agent, i) => { const Icon = icons[i] || Headset; return <article className="scenario-card" key={agent.id}><div className="scenario-icon"><Icon size={27}/></div><div className="scenario-number">SCENARIO 0{i + 1}</div><h2>{agent.name}</h2><p>{agent.purpose}</p><div className="permission-tags">{agent.permissions.slice(0, 4).map(p => <span key={p}>{p}</span>)}{agent.permissions.length > 4 && <span>+{agent.permissions.length - 4}</span>}</div><button className="text-button" onClick={() => navigate('/new', { state: { agent } })}>Open scenario <ArrowRight size={17}/></button></article> })}</div></section>
+  return <section className="page"><div className="eyebrow">FOUR SAFE DEMOS</div><h1>Pick a story.</h1><p className="lead">Each demo uses fake data and shows what ScopeLens allows, asks about, or blocks.</p><div className="scenario-grid">{scenarios.map(item => <article className="scenario-card simple-scenario" key={item.id}><div className="scenario-icon">{item.icon}</div><h2>{item.name}</h2><p>{item.description}</p><Link className="text-button" to={`/live?scenario=${item.id}`}>Try it in Live →</Link></article>)}</div></section>
 }

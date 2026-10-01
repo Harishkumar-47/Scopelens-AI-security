@@ -16,7 +16,12 @@ FILES = {
     '/finance/demo_bank_account.json',
     '/finance/demo_payment_profile.json',
     '/finance/demo_invoice.json',
+    '/finance/demo_unknown_account.json',
     '/secrets/demo_credentials.txt',
+    '/email/demo_inbox.txt',
+    '/email/demo_private.txt',
+    '/server/demo_access.log',
+    '/server/demo_config.txt',
 }
 PROJECT_PREFIX = '/workspace/github-project/'
 
@@ -31,6 +36,10 @@ def classify(path: str) -> str:
         return 'SECRET'
     if '/finance/' in value or 'bank_account' in value or 'payment_profile' in value:
         return 'FINANCIAL'
+    if value == '/email/demo_private.txt':
+        return 'SENSITIVE'
+    if value == '/server/demo_config.txt':
+        return 'SYSTEM'
     if '/appdata/' in value:
         return 'SENSITIVE'
     if '/documents/' in value or '/desktop/' in value:

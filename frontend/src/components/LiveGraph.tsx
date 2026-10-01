@@ -7,7 +7,7 @@ export default function LiveGraph({ graph, showAuthority = false, compact = fals
   graph: LiveGraphType; showAuthority?: boolean; compact?: boolean
 }) {
   const container = useRef<HTMLDivElement>(null)
-  const [selected, setSelected] = useState('Select a node to inspect movement')
+  const [selected, setSelected] = useState('Select a picture to learn more')
   const { theme } = useTheme()
 
   useEffect(() => {
@@ -42,5 +42,5 @@ export default function LiveGraph({ graph, showAuthority = false, compact = fals
     return () => cy.destroy()
   }, [graph, showAuthority, compact, theme])
 
-  return <div className="live-graph-wrap"><div ref={container} className={compact ? 'live-graph compact' : 'live-graph'} role="img" aria-label="Live agent movement graph"/><div className="graph-caption">{selected}<span>Drag to explore · scroll to zoom</span></div></div>
+  return <div className="live-graph-wrap"><div ref={container} className={compact ? 'live-graph compact' : 'live-graph'} role="img" aria-label="AI access and action map"/><div className="graph-caption">{selected}<span>Drag to explore · scroll to zoom</span></div></div>
 }
