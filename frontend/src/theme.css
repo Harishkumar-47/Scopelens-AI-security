@@ -157,6 +157,14 @@ footer { border-color: var(--border); color: var(--muted); }
 .live-verdict.danger { background: var(--danger-soft); color: var(--danger); }
 .live-verdict.safe { background: var(--safe-soft); color: var(--safe); }
 .live-verdict.neutral { background: var(--surface-soft); color: var(--text); }
+.sample-account-result { margin: 14px 18px; padding: 14px; border: 1px solid var(--danger); border-radius: 8px; background: var(--danger-soft); font-size: 12px; overflow-wrap: anywhere; }
+.sample-account-result strong { color: var(--danger); }
+.sample-account-result ul { margin: 9px 0; padding-left: 18px; }
+.sample-account-result li { margin: 4px 0; }
+.sample-account-result small { color: var(--muted); }
+.injection-details { margin-top: 10px; font-size: 11px; }
+.injection-details summary { cursor: pointer; font-weight: 700; }
+.injection-details p { max-height: 180px; overflow: auto; overflow-wrap: anywhere; }
 .watching-copy { font-size: 13px; line-height: 1.6; padding: 20px 0; }
 .model-note { font-size: 11px; margin-top: 15px; }
 .live-risk-panel .text-button { margin-top: auto; }

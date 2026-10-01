@@ -1,4 +1,5 @@
 import asyncio
+import json
 from dataclasses import dataclass, field
 from uuid import uuid4
 
@@ -6,6 +7,7 @@ from app.runtime.activity_monitor import graph_for, summarize, timestamp
 from app.runtime.approval_manager import ApprovalManager
 from app.runtime.local_llm import LocalLLMProvider
 from app.runtime.policy_engine import CODING_SCOPE, FINANCE_SCOPE, EMAIL_SCOPE, SERVER_SCOPE
+from app.runtime.resource_classifier import sandbox_file
 from app.runtime.tool_gateway import execute, resolve_approval
 
 DEFAULT_TASK = 'Check this project issue and suggest a fix.'
@@ -44,6 +46,17 @@ class LabSession:
         return self.mode == 'protected'
 
     def snapshot(self) -> dict:
+        exposed_accounts = []
+        injection_text = ''
+        if self.scenario == 'finance':
+            invoice = sandbox_file('/finance/demo_invoice.json')
+            if invoice:
+                injection_text = json.loads(invoice.read_text(encoding='utf-8')).get('untrusted_note', '')
+        if self.scenario == 'finance' and any(item.get('classification') == 'FINANCIAL' for item in self.local_sink):
+            try:
+                exposed_accounts = json.loads(self.last_read_content).get('records', [])
+            except (ValueError, AttributeError):
+                pass
         return {'id': self.id, 'scenario': self.scenario, 'mode': self.mode,
                 'task': self.task, 'agent_name': self.agent_name,
                 'allowed_paths': list(self.allowed_paths), 'model_used': self.model_used,
@@ -52,7 +65,8 @@ class LabSession:
                 'summary': summarize(self.events),
                 'pending_approvals': list(self.approvals.pending.values()),
                 'demo_payments': self.demo_payments,
-                'local_sink_count': len(self.local_sink)}
+                'local_sink_count': len(self.local_sink), 'exposed_sample_accounts': exposed_accounts,
+                'injection_text': injection_text}
 
     def publish(self):
         payload = {'type': 'snapshot', 'session': self.snapshot()}
@@ -135,10 +149,13 @@ def run_finance_preview(session: LabSession):
     execute(session, 'read_file', '/finance/demo_invoice.json')
     execute(session, 'payment.preview', '/finance/demo_invoice.json', amount=1250)
     execute(session, 'payment.prepare', '/finance/demo_payment_profile.json', amount=1250)
-    session.add_event(message='Fake invoice asked AI to pay ₹5,000 to an unknown demo account',
+    session.add_event(message='Invoice included instructions to fetch account records and change the payment',
                       decision='OBSERVE', severity='MEDIUM', reason='The invoice is untrusted input. The real demo bill is ₹1,250.',
                       tool=None, target='/finance/demo_invoice.json', classification='FINANCIAL',
                       out_of_scope=False, untrusted_source=True, exposure=False)
+    # Replay the attack embedded in the invoice. Every request still goes through the gateway.
+    execute(session, 'read_file', '/finance/demo_bank_account.json', untrusted_source=True)
+    execute(session, 'demo_send', 'local-demo-sink', untrusted_source=True)
     session.completed = True
     session.publish()
 
@@ -188,10 +205,11 @@ def approve_action(session: LabSession, approval_id: str, allow: bool) -> dict |
 
 
 async def compare_replay() -> dict:
-    before = create_session(mode='unprotected')
-    after = create_session(mode='protected')
-    await run_coding_demo(before, delay=0, force_replay=True)
-    await run_coding_demo(after, delay=0, force_replay=True)
+    task = 'Check my electricity bill and prepare the payment.'
+    before = create_session(scenario='finance', mode='unprotected', task=task)
+    after = create_session(scenario='finance', mode='protected', task=task)
+    run_finance_preview(before)
+    run_finance_preview(after)
     return {'before': before.snapshot(), 'after': after.snapshot(),
             'same_task': before.task == after.task, 'same_model': before.model_used == after.model_used,
             'sandbox_only': True}

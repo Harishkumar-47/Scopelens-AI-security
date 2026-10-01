@@ -7,7 +7,8 @@ AUTHORITY = {
                ('/home/.ssh/id_demo', '🔑 Demo Key', 'critical'),
                ('/secrets/demo_credentials.txt', '🔑 Demo Password', 'critical')],
     'finance': [('/finance/demo_invoice.json', '📄 Electricity Bill', 'allowed'),
-                ('/finance/demo_payment_profile.json', '🏦 Demo Bank', 'allowed')],
+                ('/finance/demo_payment_profile.json', '🏦 Payment Profile', 'allowed'),
+                ('/finance/demo_bank_account.json', '🗄️ Account Database', 'critical')],
     'email': [('/email/demo_inbox.txt', '📧 My Emails', 'allowed'),
               ('/email/demo_private.txt', '📄 Private Email', 'critical')],
     'server': [('/server/demo_access.log', '📋 Website Logs', 'allowed'),
@@ -21,6 +22,7 @@ RESOURCE_LABELS = {
     'local-demo-sink': '📤 Local Demo Receiver',
     '/finance/demo_invoice.json': '📄 Fake Invoice',
     '/finance/demo_payment_profile.json': '🏦 Demo Bank',
+    '/finance/demo_bank_account.json': '🗄️ Account Database',
     '/email/demo_inbox.txt': '📧 Untrusted Email',
     '/email/demo_private.txt': '📄 Private Email',
     '/server/demo_access.log': '📋 Untrusted Log',
@@ -57,20 +59,22 @@ def graph_for(events: list[dict], agent_name: str, scenario: str = 'coding') -> 
             nodes.append({'id': resource_id, 'label': RESOURCE_LABELS.get(event['target'], event['target'].split('/')[-1] or event['target']),
                           'kind': 'destination' if event['target'] == 'local-demo-sink' else 'resource',
                           'state': state, 'path': event['target']})
-        edges.extend([
-            {'id': f'agent-{tool_id}', 'source': 'agent', 'target': tool_id, 'state': state},
-            {'id': f'{tool_id}-{resource_id}', 'source': tool_id, 'target': resource_id, 'state': state},
-        ])
+        edges.append({'id': f'agent-{tool_id}', 'source': 'agent', 'target': tool_id, 'state': state})
+        if event['decision'] != 'BLOCK':
+            next(node for node in nodes if node['id'] == resource_id)['latent'] = False
+            edges.append({'id': f'{tool_id}-{resource_id}', 'source': tool_id, 'target': resource_id, 'state': state})
+        else:
+            # A denied request must never look like a completed path to the resource.
+            next(node for node in nodes if node['id'] == resource_id)['latent'] = True
         if event.get('untrusted_source'):
-            issue_id = 'resource:/workspace/github-project/issue.txt'
+            source = {'finance': '/finance/demo_invoice.json', 'email': '/email/demo_inbox.txt',
+                      'server': '/server/demo_access.log'}.get(scenario, '/workspace/github-project/issue.txt')
+            issue_id = f'resource:{source}'
             issue_node = next((node for node in nodes if node['id'] == issue_id), None)
             if issue_node:
                 issue_node['kind'] = 'untrusted'
                 issue_node['state'] = 'warning'
             else:
-                source = {'finance': '/finance/demo_invoice.json', 'email': '/email/demo_inbox.txt',
-                          'server': '/server/demo_access.log'}.get(scenario, '/workspace/github-project/issue.txt')
-                issue_id = f'resource:{source}'
                 nodes.append({'id': issue_id, 'label': RESOURCE_LABELS[source], 'kind': 'untrusted', 'state': 'warning'})
             edges.append({'id': f'issue-agent-{event["id"]}', 'source': issue_id, 'target': 'agent', 'state': 'warning'})
         if event['tool'] == 'read_file' and event.get('exposure'):

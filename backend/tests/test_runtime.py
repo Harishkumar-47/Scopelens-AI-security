@@ -89,6 +89,16 @@ def test_compare_uses_same_task_and_replay_model():
     comparison = asyncio.run(compare_replay())
     assert comparison['same_task'] and comparison['same_model'] and comparison['sandbox_only']
     assert comparison['before']['summary']['exposures'] > comparison['after']['summary']['exposures']
+    assert len(comparison['before']['exposed_sample_accounts']) == 3
+    assert comparison['after']['exposed_sample_accounts'] == []
+    assert comparison['before']['local_sink_count'] == 1
+    assert comparison['after']['local_sink_count'] == 0
+    assert comparison['after']['summary']['blocked'] == 2
+    account = 'resource:/finance/demo_bank_account.json'
+    before_edges = comparison['before']['graph']['edges']
+    after_edges = comparison['after']['graph']['edges']
+    assert any(edge['target'] == account and edge['source'].startswith('tool:') for edge in before_edges)
+    assert not any(edge['target'] == account and edge['source'].startswith('tool:') for edge in after_edges)
 
 
 def test_local_model_failure_does_not_silently_run_replay(monkeypatch):

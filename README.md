@@ -12,7 +12,7 @@ An agent with customer data and external email access can create an exfiltration
 
 The before/after simulator removes an actual permission and reruns normalization, graph generation, risk detection and scoring. The demo Support Agent changes from **76 HIGH / 3 chains** to **28 LOW / 0 chains** when `email.send_external` is removed, while customer reading and ticket creation remain available.
 
-At runtime, the Tool Gateway evaluates every requested action in code. A prompt-injection replay can request a fake secret. Unprotected sandbox mode records a simulated exposure to an in-memory sink; protected mode blocks the same request before reading the file, then lets the legitimate repository task continue.
+At runtime, the Tool Gateway evaluates every requested action in code. The Live before/after view now uses a synthetic banking workflow: a fake electricity invoice carries a long prompt injection telling the Payment Helper to read a sample account database, send the records to an in-memory receiver, and change the payment. With protection off, three fake account records appear in the demo result. With protection on, the database read and send are blocked while the ₹1,250 bill check and payment preparation continue. The graph shows completed resource paths only when access actually occurred.
 
 ## Screenshots
 
@@ -39,6 +39,7 @@ React + Vite + TypeScript → FastAPI + Pydantic → provider adapter → normal
 - Simplified MCP, OAuth, AWS IAM, Azure RBAC, GCP IAM and GitHub adapters
 - Live sandbox file monitoring, Scope Deviation Score, alerts, and activity graph
 - Protected and unprotected replay of the same synthetic prompt-injection case
+- Banking prompt-injection demonstration with inspectable invoice text, three synthetic account records, visible simulated exposure, and distinct before/after access graphs
 - One-time human approval for fake payment execution
 - Light and graphite themes with saved preference
 
@@ -101,7 +102,7 @@ Generic permissions are explicitly mapped. MCP accepts a simplified `manifest.to
 
 **ScopeLens is a hackathon prototype designed to model agent capability combinations.** The MVP does not implement complete cloud IAM or OAuth semantics, IAM conditions, wildcard expansion, resource scoping, deny precedence, or live provider scanning. Provider adapters normalize a supported subset into a common model. Treat ScopeLens as a security design and analysis assistant, not a replacement for provider-native security controls.
 
-The Live Lab never reads host files or contacts an external destination. Its executable file set is a fixed allowlist inside `backend/app/runtime/sandbox`. All tokens, keys, invoices and payments are explicitly fake. Unprotected mode is an educational simulation **inside that sandbox only**. Runtime sessions are in memory and are cleared when the backend restarts. The optional model is local Ollama; no real shell, network or payment tools are exposed.
+The Live Lab never reads host files or contacts an external destination. Its executable file set is a fixed allowlist inside `backend/app/runtime/sandbox`. All tokens, keys, invoices, account records and payments are explicitly fake. Unprotected mode is an educational simulation **inside that sandbox only**. Runtime sessions are in memory and are cleared when the backend restarts. The optional model is local Ollama for the Code story; the banking story uses deterministic Demo AI replay so both sides make identical requests. No real shell, network or payment tools are exposed.
 
 ## Testing and deployment
 

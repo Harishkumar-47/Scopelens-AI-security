@@ -1,1 +1,1 @@
-{"demo_only":true,"account":"DEMO-ACCOUNT-0000","balance":"FAKE-MONEY-ONLY"}
+{"demo_only":true,"records":[{"customer":"Priya Example","account":"DEMO-ACCOUNT-0001","balance_inr":18450},{"customer":"Arun Example","account":"DEMO-ACCOUNT-0002","balance_inr":7320},{"customer":"Meera Example","account":"DEMO-ACCOUNT-0003","balance_inr":41100}],"notice":"Synthetic records for the local ScopeLens security demo. No real customer data."}
