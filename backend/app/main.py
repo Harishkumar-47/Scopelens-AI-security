@@ -12,8 +12,37 @@ import os
 app = FastAPI(title='ScopeLens API', version='0.1.0')
 origins = [o.strip() for o in os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://localhost:5173').split(',') if o.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=False,
-                   allow_methods=['GET', 'POST'], allow_headers=['Content-Type'])
+                   allow_methods=['GET', 'POST'], allow_headers=['Content-Type', 'Authorization'])
 app.include_router(live_router)
+from app.runtime.tester import router as tester_router
+app.include_router(tester_router)
+from app.runtime.integration import router as gateway_router
+app.include_router(gateway_router)
+from collections import defaultdict, deque
+from time import monotonic
+from fastapi.responses import JSONResponse
+request_windows = defaultdict(deque)
+
+@app.middleware('http')
+async def resource_limits(request, call_next):
+    try:
+        length = int(request.headers.get('content-length', '0'))
+    except ValueError:
+        return JSONResponse({'detail': 'Invalid content length'}, status_code=400)
+    if length > 65536:
+        return JSONResponse({'detail': 'Request exceeds 64 KiB'}, status_code=413)
+    key = request.client.host if request.client else 'local'
+    now = monotonic()
+    window = request_windows[key]
+    while window and window[0] < now - 60:
+        window.popleft()
+    if len(window) >= 120:
+        return JSONResponse({'detail': 'Rate limit exceeded'}, status_code=429)
+    window.append(now)
+    if len(request_windows) > 10000:
+        request_windows.clear()
+    return await call_next(request)
+
 SCENARIO_DIR = Path(__file__).parent / 'scenarios'
 
 @app.get('/api/health')
@@ -31,23 +60,25 @@ def simulate_api(body: SimulationInput):
     if body.remove_permission not in available:
         raise HTTPException(400, 'Permission is not present in the agent')
     updated = body.agent.model_copy(deep=True)
-    if body.remove_permission in updated.permissions:
-        updated.permissions.remove(body.remove_permission)
-    elif updated.provider == 'mcp' and updated.manifest:
+    updated.permissions = [permission for permission in updated.permissions
+                           if permission != body.remove_permission]
+    if updated.provider == 'mcp' and updated.manifest:
         for tool in updated.manifest.get('tools', []):
             tool['capabilities'] = [capability for capability in tool.get('capabilities', [])
                                     if f"mcp.{tool['name']}.{capability}" != body.remove_permission]
     elif updated.manifest:
-        for field in ('scopes', 'actions', 'permissions'):
-            if body.remove_permission in updated.manifest.get(field, []):
-                updated.manifest[field].remove(body.remove_permission)
+        field = {'oauth': 'scopes', 'azure_rbac': 'actions',
+                 'gcp_iam': 'permissions', 'github': 'permissions'}.get(updated.provider)
+        if field:
+            updated.manifest[field] = [permission for permission in updated.manifest.get(field, [])
+                                       if permission != body.remove_permission]
         statements = updated.manifest.get('Statement', [])
         if isinstance(statements, dict):
             statements = [statements]
         for statement in statements:
             actions = statement.get('Action', [])
-            if isinstance(actions, list) and body.remove_permission in actions:
-                actions.remove(body.remove_permission)
+            if isinstance(actions, list):
+                statement['Action'] = [action for action in actions if action != body.remove_permission]
             elif actions == body.remove_permission:
                 statement['Action'] = []
     after = analyze(updated)
@@ -85,3 +116,11 @@ def import_agent(payload: dict):
 @app.post('/api/explain')
 def explain_api(body: ExplanationInput):
     return explain(body.agent, analyze(body.agent))
+
+@app.get('/api/readiness')
+def readiness():
+    from app.runtime.local_llm import LocalLLMProvider
+    from app.runtime.evidence import connect
+    with connect() as db:
+        db.execute('SELECT 1')
+    return {'backend': 'ready', 'audit': 'ready', 'model': LocalLLMProvider().status()}

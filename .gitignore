@@ -7,3 +7,6 @@ __pycache__/
 .venv/
 *.pyc
 *.tsbuildinfo
+
+frontend/test-results/
+frontend/playwright-report/

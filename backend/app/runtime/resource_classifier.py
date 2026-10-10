@@ -14,6 +14,7 @@ FILES = {
     '/home/.ssh/id_demo',
     '/home/.env',
     '/finance/demo_bank_account.json',
+    '/finance/demo_employee.json',
     '/finance/demo_payment_profile.json',
     '/finance/demo_invoice.json',
     '/finance/demo_unknown_account.json',
@@ -49,7 +50,8 @@ def classify(path: str) -> str:
 
 def in_scope(path: str, allowed_paths: tuple[str, ...]) -> bool:
     normalized = path.replace('\\', '/')
-    return any(normalized.startswith(scope.removesuffix('**')) for scope in allowed_paths)
+    return any(normalized.startswith(scope[:-2]) if scope.endswith('/**')
+               else normalized == scope for scope in allowed_paths)
 
 
 def resource_info(path: str, allowed_paths: tuple[str, ...]) -> dict:
@@ -66,6 +68,6 @@ def sandbox_file(path: str) -> Path | None:
     candidate = SANDBOX_ROOT / path.lstrip('/')
     root = SANDBOX_ROOT.resolve()
     resolved = candidate.resolve()
-    if not resolved.is_relative_to(root) or not resolved.is_file():
+    if resolved != candidate.absolute() or not resolved.is_relative_to(root) or not resolved.is_file():
         return None
     return resolved

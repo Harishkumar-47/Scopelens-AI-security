@@ -4,6 +4,7 @@ WORKDIR /code
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
+RUN mkdir -p /code/data
 RUN adduser --disabled-password --gecos '' appuser && chown -R appuser:appuser /code
 USER appuser
 EXPOSE 8000

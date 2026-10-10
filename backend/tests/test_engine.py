@@ -71,3 +71,17 @@ def test_mcp_removal_changes_only_selected_capability():
         {'name': 'mail', 'capabilities': ['EXTERNAL_SEND', 'INTERNAL_SEND']}]})
     result = simulate_api(SimulationInput(agent=agent, remove_permission='mcp.mail.EXTERNAL_SEND'))
     assert result['after']['capabilities'] == ['INTERNAL_SEND']
+
+@pytest.mark.parametrize('provider,permission,manifest', [
+    ('oauth', 'email.send_external', {'scopes': ['email.send_external', 'email.send_external']}),
+    ('aws_iam', 's3:GetObject', {'Statement': {'Effect': 'Allow', 'Action': ['s3:GetObject', 's3:GetObject']}}),
+    ('mcp', 'mcp.mail.EXTERNAL_SEND', {'tools': [{'name': 'mail', 'capabilities': ['EXTERNAL_SEND']}]}),
+])
+def test_simulation_removes_all_permission_sources(provider, permission, manifest):
+    agent = AgentInput(name='Agent', purpose='Read data', provider=provider,
+                       permissions=[permission, permission], manifest=manifest)
+    original = agent.model_dump()
+    result = simulate_api(SimulationInput(agent=agent, remove_permission=permission))
+    assert result['before']['normalized_permissions']
+    assert result['after']['normalized_permissions'] == []
+    assert agent.model_dump() == original

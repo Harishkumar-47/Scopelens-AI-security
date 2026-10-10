@@ -1,115 +1,101 @@
 # ScopeLens
 
-**Before you give an AI agent access, see the blast radius. While it runs, watch the movement.**
+**Define an agent's job. Test its tools. Stop unauthorized actions. Prove the result.**
 
-ScopeLens analyzes an AI agent's potential blast radius before deployment and monitors its actual agentic movements during execution. The Live page is a fully synthetic, local sandbox demonstration.
+ScopeLens is a deterministic security layer around agent tool calls, built on the existing React/TypeScript, FastAPI/Pydantic and NetworkX application. It is not an AI model. Qwen3 0.6B supplies optional local inference; ScopeLens makes the execution decisions outside the model.
 
-## Problem and solution
-
-An agent with customer data and external email access can create an exfiltration path even when each permission looks reasonable alone. ScopeLens maps provider permissions into common capabilities, builds a graph, applies deterministic risk rules, and recalculates everything during least-privilege simulation. On the pre-deployment side, AI only explains deterministic findings. In the Live Lab, an optional local model may propose tool requests; code enforces every decision.
-
-## Core innovation
-
-The before/after simulator removes an actual permission and reruns normalization, graph generation, risk detection and scoring. The demo Support Agent changes from **76 HIGH / 3 chains** to **28 LOW / 0 chains** when `email.send_external` is removed, while customer reading and ticket creation remain available.
-
-At runtime, the Tool Gateway evaluates every requested action in code. The Live before/after view now uses a synthetic banking workflow: a fake electricity invoice carries a long prompt injection telling the Payment Helper to read a sample account database, send the records to an in-memory receiver, and change the payment. With protection off, three fake account records appear in the demo result. With protection on, the database read and send are blocked while the ₹1,250 bill check and payment preparation continue. The graph shows completed resource paths only when access actually occurred.
-
-## Screenshots
-
-The app includes a landing page, Analyze page, Live page, Alerts page, four-story scenario gallery, and two comparison views.
-
-![ScopeLens Live code demo](docs/screenshots/live-light.png)
-
-![ScopeLens light dashboard](docs/screenshots/dashboard-light.png)
-
-![ScopeLens graphite dashboard](docs/screenshots/dashboard-dark.png)
-
-## Architecture and stack
-
-React + Vite + TypeScript → FastAPI + Pydantic → provider adapter → normalized capabilities → NetworkX graph → deterministic risk rules and exposure score → simulation. Runtime uses a fixed synthetic sandbox, Tool Gateway, deterministic policy engine, WebSocket events, and optional local Ollama. Cytoscape.js renders both graphs. See [architecture](docs/architecture.md), [risk model](docs/risk-model.md), and [runtime guard](docs/runtime-guard.md).
-
-## Features
-
-- Manual agent configuration and JSON import
-- Three demo agents: Support, DevOps and Finance
-- 29 normalized capabilities and 12 deterministic risk rules
-- Interactive graph and explicit risk paths
-- Permission removal simulation and before/after comparison
-- Deterministic purpose alignment and optional AI explanations with fallback
-- Simplified MCP, OAuth, AWS IAM, Azure RBAC, GCP IAM and GitHub adapters
-- Live sandbox file monitoring, Scope Deviation Score, alerts, and activity graph
-- Protected and unprotected replay of the same synthetic prompt-injection case
-- Banking prompt-injection demonstration with inspectable invoice text, three synthetic account records, visible simulated exposure, and distinct before/after access graphs
-- One-time human approval for fake payment execution
-- Light and graphite themes with saved preference
-
-## Quick start
+## Start with Docker and Qwen3 0.6B
 
 ```bash
 cp .env.example .env
-docker compose up --build
+# Keep existing environment settings if you already have .env.
+# Set LLM_ENABLED=true, LOCAL_LLM_MODEL=qwen3:0.6b.
+docker compose --profile live-model up -d ollama
+docker compose exec ollama ollama pull qwen3:0.6b
+docker compose --profile live-model up -d --build backend frontend
+curl --fail http://127.0.0.1:8000/api/readiness
 ```
 
-Frontend: <http://localhost:3000>. Backend: <http://localhost:8000>. Swagger: <http://localhost:8000/docs>.
+Open [ScopeLens](http://localhost:3000), [API docs](http://localhost:8000/docs), or [health](http://localhost:8000/api/health). Model installation is separate from image builds. Weights remain in the Ollama volume. CPU-only inference uses two threads; allow up to 240 seconds for cold loading/inference. Readiness checks actually load the configured Ollama runner, rather than treating an installed tag as sufficient.
 
-The default is **Lightweight Mode**: frontend + backend, with reliable **DEMO REPLAY MODE**. No model download is needed.
+Ollama is optional: set `LLM_ENABLED=false`, then run `docker compose up -d --build`. Choose **Demo AI · scripted** for recorded tests. A failed local inference produces an error and never silently becomes Demo AI.
 
-### Optional local model mode
+See [complete Docker/local setup and validation steps](docs/setup-and-validation.md).
 
-Qwen3 0.6B through Ollama is supported as an optional tool-selection provider. It never executes tools directly. Model output is validated and every request goes through the Tool Gateway. Enable it only on a machine with adequate resources:
+## Developer workflow
+
+**BUILD → CHECK → TEST → PROTECT → DEPLOY**
+
+- **Analyze:** import local JSON configurations or simplified provider manifests. Backend adapters extract supported permissions, calculate capability combinations and show NetworkX risk paths. Manual permission entry remains available.
+- **Tester:** converse with Bank, Code, Email, Server or Custom agents. Qwen proposes actual requests; the gateway validates and executes controlled sandbox tools. Model-generated text is distinguished from backend execution summaries. A model refusing an attack is a valid result.
+- **Intent Lock:** configure the job, tools, resources, forbidden actions, approval tools and authorized delegates. ALLOW and WARN execute granted tools, ASK waits for a human, and BLOCK denies execution. Delegation can only narrow permissions and inherits restrictions.
+- **Live:** run identical captured requests through isolated OFF and ON sandboxes. Four recorded scenarios are available; select a captured model session to replay real model actions without fresh inference.
+- **Proof:** inspect persistent, timestamped SQLite events and download redacted JSON. Decisions include requested tools/resources, rule, reason, instruction source, and actual before/after execution state. Raw prompts and file contents are excluded; a task fingerprint links to a locally retained original task.
+- **Integrate:** use the [Python middleware/example](docs/developer-integration.md) to route local agent tool calls through the same gateway. Only routed calls are enforced.
+
+`/live` opens before/after replay. `/live/session` preserves the single-session lab. `/practical` redirects to Tester; it is not a second chatbot tab. Impact and About retain explanations of developer usage.
+
+## Demonstrate all four scenarios
+
+| Scenario | Permitted task | Manipulated request | Protected result |
+| --- | --- | --- | --- |
+| Code | Read project files | Read synthetic credentials outside the project and send them | Read and send denied; project reads continue |
+| Payments | Check and prepare a ₹1,250 bill | Access private synthetic records; transfer ₹5,000 to an unapproved demo account | Record access/send denied; transfer waits for explicit approval |
+| Email | Summarize the synthetic inbox | Read private synthetic data and deliver it to the local sink | Access/send denied; inbox remains readable |
+| Server | Read diagnostic logs | Delete simulated server settings | Change denied; log access continues |
+
+Every scenario follows normal task → untrusted input → requested action → gateway decision → verified sandbox state. OFF mode can expose synthetic data or change in-memory demo state; it cannot reach host files, external receivers, real accounts or production servers. ASK is not a successful block and is not execution. Approved payments remain synthetic.
+
+To replay an existing capture directly, use `POST /api/live/compare?scenario=coding&captured_id=SESSION_ID`. The response explicitly reports `inference=false`, identical requests, and state-backed results.
+
+## Run the Python integration
 
 ```bash
-docker compose --profile live-model up -d --build
-docker compose --profile live-model exec ollama ollama pull qwen3:0.6b
+python3 examples/scopelens_sdk.py
 ```
 
-Set `LLM_ENABLED=true` in `.env`, then restart the backend. The Live model selector offers Qwen3 only for the Code demo when the local model is installed and enabled. Qwen appears as ready only when Ollama reports that model installed. On CPU-only machines, the first run can take several minutes while Ollama loads the model; ScopeLens keeps the loaded model in memory for later runs. If Qwen fails during a selected run, the UI reports the failure; select **Demo AI** and reset to use replay mode. Model weights are never downloaded during image builds. `llama3.2:3b` can be used by setting `LOCAL_LLM_MODEL` and pulling that model separately.
+With the backend running, this makes a real project fixture read through an owner-authorized gateway, then attempts synthetic credential access. Expected results: ALLOW and BLOCK. Inspect Proof for the corresponding events. The gateway executes tools itself; callers must not execute them again independently.
 
-For local development, install Python dependencies from `backend/requirements.txt`, run `uvicorn app.main:app --reload` in `backend`, then run `npm install && npm run dev` in `frontend`.
+Policy configuration and delegation requests are documented in [developer integration](docs/developer-integration.md).
 
-## Environment
+## Tests and CI
 
-`AI_ENABLED=false` is the default. To enable explanations set `AI_ENABLED=true`, `AI_PROVIDER=openai` or `gemini`, and the corresponding key. The app falls back to deterministic templates if the API is unavailable. `BACKEND_PORT`, `FRONTEND_PORT`, and `CORS_ORIGINS` are configurable. `DATABASE_URL` is reserved for future history support; the MVP stores current analyses in browser session storage.
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r backend/requirements.txt
+.venv/bin/python -m pytest -q
+npm --prefix frontend ci
+npm --prefix frontend run build
+docker compose config --quiet
+# Real inference and deployed gateway acceptance, with Ollama running:
+python3 scripts/validate_deployment.py
+# Desktop and mobile Chromium checks against the running app:
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+```
 
-`LLM_ENABLED=false` is independent of explanation AI. `LOCAL_LLM_MODEL=qwen3:0.6b` and `LLM_BASE_URL=http://ollama:11434` configure local tool selection. The runtime demo works offline in replay mode after dependencies are installed.
+CI runs backend tests, frontend builds, Compose validation and browser checks against a model-free Docker installation. Model adapter unit tests use controlled responses; the deployment validator separately tests actual Qwen inference. See [validation evidence](docs/platform-validation.md) for observed results and limits.
 
-## API
+## What works, what is simulated, what is next
 
-| Endpoint | Purpose |
+| Status | Scope |
 | --- | --- |
-| `POST /api/analyze` | Analyze agent permissions |
-| `POST /api/simulate` | Remove one permission and compare |
-| `POST /api/explain` | Explain existing deterministic findings |
-| `GET /api/scenarios` | List sample agents |
-| `GET /api/scenarios/{id}` | Get one sample |
-| `GET /api/providers` | List supported adapters |
-| `POST /api/import` | Validate and analyze imported JSON |
-| `GET /api/health` | Health status |
-| `POST /api/live/sessions` | Create a Code, Payments, Email, or Server demo session |
-| `GET /api/live/tools` | Declared synthetic tool capabilities and approval metadata |
-| `POST /api/live/sessions/{id}/run` | Run the sandbox task |
-| `GET /api/live/sessions/{id}` | Current activity, graph, alerts and score |
-| `WS /api/live/ws/{id}` | Stream graph and activity updates |
-| `POST /api/live/sessions/{id}/actions` | Request a tool action through the gateway |
-| `POST /api/live/sessions/{id}/approvals/{approval_id}` | Deny or allow once |
-| `POST /api/live/compare` | Replay before and after with the same task |
+| Working local features | Ollama Qwen inference, validated tool requests, deterministic gateway, Custom Intent Lock, narrowed delegation, expiring owner-authorized one-time approvals, exact replay, SQLite evidence/history, JSON export, Python sandbox tool middleware, manifest analysis, responsive dashboard |
+| Synthetic simulation | Employee/account records, money transfers, receiver deliveries and destructive server state. File reads execute against real local fixture files; payments, sends and deletions mutate in-memory demo state |
+| Simplified analysis | MCP, OAuth, GitHub, AWS IAM, Azure RBAC and GCP IAM imports cover a documented subset, not complete provider semantics or live account discovery |
+| Future work | Arbitrary host-tool adapters, a production MCP proxy, provider-native enforcement, tenant identity/isolation, signed audit evidence, durable active chat/approval recovery, production deployment hardening |
 
-`POST /api/analyze` accepts `{ "name": "SupportBot", "purpose": "Answer support tickets", "provider": "generic", "permissions": ["customer.read", "email.send_external"] }`. `POST /api/simulate` accepts `{ "agent": <same object>, "remove_permission": "email.send_external" }`.
+The named `audit_data` volume retains redacted session history and evidence across restarts. Active sessions, prompt contexts and approvals are intentionally transient; restarting invalidates them. Approval IDs expire after 120 seconds and are consumed on either decision. Unknown tools, traversal and symlink aliases are denied before reads. Requests, tool loops and resource usage are bounded.
 
-## Provider support and MVP limitations
+This is a **local, single-operator security testing platform**, not production-ready security. Ports bind to loopback. Remote use requires a separately configured authenticated TLS proxy. SQLite evidence is not tamper-proof, and ScopeLens cannot protect tool paths that bypass its gateway. A recorded legitimate-task success means permitted sandbox task access succeeded, not that an arbitrary code fix or real transaction completed.
 
-Generic permissions are explicitly mapped. MCP accepts a simplified `manifest.tools[]` with names and normalized capabilities. OAuth accepts `manifest.scopes[]`. AWS IAM accepts `manifest.Statement[]` with `Effect: Allow` and `Action`. Azure, GCP and GitHub accept simplified `actions` or `permissions` arrays. Unknown permissions remain visible and unscored.
+## Architecture and existing analysis
 
-**ScopeLens is a hackathon prototype designed to model agent capability combinations.** The MVP does not implement complete cloud IAM or OAuth semantics, IAM conditions, wildcard expansion, resource scoping, deny precedence, or live provider scanning. Provider adapters normalize a supported subset into a common model. Treat ScopeLens as a security design and analysis assistant, not a replacement for provider-native security controls.
+React + Vite + TypeScript → FastAPI + Pydantic → simplified provider adapters → normalized capabilities → NetworkX → deterministic risk rules. The runtime adds fixed sandbox tools, Intent Lock, authorization, events and SQLite evidence. Cytoscape renders the access graphs; the dashboard uses lightweight React/CSS depth and interactive system icons.
 
-The Live Lab never reads host files or contacts an external destination. Its executable file set is a fixed allowlist inside `backend/app/runtime/sandbox`. All tokens, keys, invoices, account records and payments are explicitly fake. Unprotected mode is an educational simulation **inside that sandbox only**. Runtime sessions are in memory and are cleared when the backend restarts. The optional model is local Ollama for the Code story; the banking story uses deterministic Demo AI replay so both sides make identical requests. No real shell, network or payment tools are exposed.
+Existing permission-removal simulation remains: the demo Support Agent changes from **76 HIGH / 3 chains** to **28 LOW / 0 chains** when `email.send_external` is removed. Unknown permissions remain visible and unscored. Optional explanation AI is separate from runtime inference and labels its template fallback.
 
-## Testing and deployment
+See [architecture](docs/architecture.md), [risk model](docs/risk-model.md) and [runtime guard](docs/runtime-guard.md). Swagger documents the complete current API.
 
-Run `PYTHONPATH=. pytest -q` in `backend`, `npm run build` in `frontend`, then `docker compose up --build`. Check `/api/health`, load all three analyzer scenarios, replay the Live Lab in both modes, and verify the UI at desktop and mobile widths. See [demo guide](docs/demo-guide.md).
-
-Images are named `scopelens-backend` and `scopelens-frontend`. Publish with `docker tag scopelens-backend <registry>/scopelens-backend:<tag>` and `docker push <registry>/scopelens-backend:<tag>` (similarly for frontend). Docker Hub and GHCR both work. One VM with Docker Compose is simplest; alternatively deploy the frontend to Vercel/Netlify/Cloudflare Pages and backend to Render/Railway/Fly.io, with a same-origin `/api` proxy and CORS configured.
-
-## Roadmap
-
-Real MCP discovery, OAuth scope import, Google Workspace and Microsoft 365 analysis, provider-native GitHub/cloud imports, short-lived permissions, policy-as-code export, CI checks and enterprise inventory.
+The optional `small-model` profile preserves llama.cpp support. It downloads quantized Qwen into a model volume at startup; Ollama remains the default. Both installed runtimes can appear in Tester when `LLM_ENABLED=true`.

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
+import { mapArtwork } from './mapArtwork'
 import type { Graph } from '../types'
 import { useTheme } from '../theme'
 const accessLabels: Record<string, string> = {
@@ -8,6 +9,7 @@ const accessLabels: Record<string, string> = {
   CODE_WRITE: 'Change code', CI_TRIGGER: 'Run build', DEPLOY: 'Deploy', PAYMENT_CREATE: 'Prepare payment',
   PAYMENT_APPROVE: 'Approve payment', CLOUD_ADMIN: 'Manage cloud', EXECUTE_COMMAND: 'Run commands',
 }
+const resourceLabels: Record<string,string> = { 'Secrets Vault':'Passwords', 'Drive Files':'Private Files', 'External Email':'Outside', 'Source Repository':'GitHub', 'Payment Platform':'Bank', 'Production':'Server', 'Customer Database':'Customer Data' }
 export default function CapabilityGraph({ graph, compact = false }: { graph: Graph; compact?: boolean }) {
   const target = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState('Select a picture to see what it means.')
@@ -17,7 +19,7 @@ export default function CapabilityGraph({ graph, compact = false }: { graph: Gra
     const variables = getComputedStyle(document.documentElement)
     const color = (key: string) => variables.getPropertyValue(key).trim()
     const cy = cytoscape({ container: target.current, elements: [
-      ...graph.nodes.map(n => ({ data: { ...n, label: n.kind === 'capability' ? accessLabels[n.id.replace('capability:', '')] || n.label : n.label } })), ...graph.edges.map(e => ({ data: e }))],
+      ...graph.nodes.map(n => ({ data: { ...n, artwork: mapArtwork(n.kind, color(n.kind === 'risk' ? '--danger' : '--graph-border')), label: n.kind === 'capability' ? accessLabels[n.id.replace('capability:', '')] || n.label : resourceLabels[n.label] || n.label } })), ...graph.edges.map(e => ({ data: e }))],
       style: [
         { selector: 'node', style: { 'background-color': color('--graph-node'), 'label': 'data(label)', 'color': color('--graph-text'), 'font-size': compact ? '9px' : '11px', 'text-wrap': 'wrap', 'text-max-width': '100px', 'text-valign': 'bottom', 'text-margin-y': 8, 'width': 24, 'height': 24, 'border-width': 2, 'border-color': color('--graph-border') } },
         { selector: 'node[kind="agent"]', style: { 'background-color': color('--graph-agent'), 'border-color': color('--graph-agent'), 'width': 44, 'height': 44, 'font-weight': 700 } },
@@ -26,9 +28,13 @@ export default function CapabilityGraph({ graph, compact = false }: { graph: Gra
         { selector: 'node[kind="risk"]', style: { 'background-color': color('--danger'), 'border-color': color('--danger'), 'width': 35, 'height': 35, 'font-weight': 700 } },
         { selector: 'edge', style: { 'width': 1.8, 'line-color': color('--graph-edge'), 'target-arrow-color': color('--graph-edge'), 'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'opacity': .75 } },
         { selector: 'edge[dangerous]', style: { 'width': 3, 'line-color': color('--danger'), 'target-arrow-color': color('--danger'), 'opacity': 1 } },
-        { selector: '.highlighted', style: { 'overlay-color': color('--danger'), 'overlay-opacity': .12, 'overlay-padding': 6 } }
+        { selector: '.highlighted', style: { 'overlay-color': color('--danger'), 'overlay-opacity': .12, 'overlay-padding': 6 } },
+        { selector: 'node', style: { 'background-image': 'data(artwork)', 'background-fit': 'contain', 'background-opacity': 0, 'border-width': 0, width: compact ? 56 : 76, height: compact ? 52 : 70, 'text-margin-y': 6 } },
+        { selector: 'node:selected, .focused', style: { 'overlay-color': color('--graph-agent'), 'overlay-opacity': .12, 'overlay-padding': 8 } },
       ], layout: { name: 'breadthfirst', directed: true, padding: 42, spacingFactor: 1.25, animate: false }, minZoom: .3, maxZoom: 2.3, wheelSensitivity: .16 })
     cy.on('tap', 'node', event => { const node = event.target; cy.elements().removeClass('highlighted'); node.addClass('highlighted'); node.neighborhood().addClass('highlighted'); setSelected(`${node.data('label')} · ${node.data('kind')}`) })
+    cy.on('mouseover', 'node', event => { event.target.addClass('focused'); cy.container()!.style.cursor = 'pointer' })
+    cy.on('mouseout', 'node', event => { event.target.removeClass('focused'); cy.container()!.style.cursor = 'default' })
     return () => cy.destroy()
   }, [graph, compact, theme])
   return <div className="graph-wrap"><div ref={target} className={compact ? 'graph compact' : 'graph'} role="img" aria-label="Interactive AI access map"/><div className="graph-hint">{selected} <span>Scroll to zoom · drag to explore</span></div></div>

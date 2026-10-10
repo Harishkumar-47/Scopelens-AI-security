@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import cytoscape from 'cytoscape'
+import { mapArtwork } from './mapArtwork'
 import type { LiveGraph as LiveGraphType } from '../types'
 import { useTheme } from '../theme'
 
@@ -19,7 +20,7 @@ export default function LiveGraph({ graph, showAuthority = false, compact = fals
     const edges = graph.edges.filter(edge => (showAuthority || !edge.latent) && ids.has(edge.source) && ids.has(edge.target))
     const cy = cytoscape({
       container: container.current,
-      elements: [...nodes.map(node => ({ data: node })), ...edges.map(edge => ({ data: edge }))],
+      elements: [...nodes.map(node => ({ data: { ...node, artwork: mapArtwork(node.kind, color(node.state === 'blocked' || node.state === 'critical' ? '--danger' : node.state === 'allowed' ? '--safe' : node.state === 'approval' || node.state === 'warning' ? '--warning' : '--graph-border')) } })), ...edges.map(edge => ({ data: edge }))],
       style: [
         { selector: 'node', style: { label: 'data(label)', 'text-wrap': 'wrap', 'text-max-width': '110px', 'font-size': compact ? '9px' : '11px', 'text-valign': 'bottom', 'text-margin-y': 8, color: color('--graph-text'), 'background-color': color('--graph-node'), 'border-width': 2, 'border-color': color('--graph-border'), width: 31, height: 31 } },
         { selector: 'node[kind="agent"]', style: { 'background-color': color('--graph-agent'), 'border-color': color('--graph-agent'), width: 48, height: 48, 'font-weight': 700 } },
@@ -34,11 +35,15 @@ export default function LiveGraph({ graph, showAuthority = false, compact = fals
         { selector: 'edge[state="allowed"]', style: { 'line-color': color('--safe'), 'target-arrow-color': color('--safe') } },
         { selector: 'edge[state="warning"], edge[state="approval"]', style: { 'line-color': color('--warning'), 'target-arrow-color': color('--warning') } },
         { selector: 'edge[state="critical"], edge[state="blocked"]', style: { width: 3, 'line-color': color('--danger'), 'target-arrow-color': color('--danger') } },
+        { selector: 'node', style: { 'background-image': 'data(artwork)', 'background-fit': 'contain', 'background-opacity': 0, 'border-width': 0, width: compact ? 56 : 76, height: compact ? 52 : 70, 'text-margin-y': 6 } },
+        { selector: 'node:selected, .focused', style: { 'overlay-color': color('--graph-agent'), 'overlay-opacity': .12, 'overlay-padding': 8 } },
       ],
       layout: { name: 'breadthfirst', directed: true, padding: 28, spacingFactor: 1.35, animate: false },
       minZoom: .28, maxZoom: 2.3, wheelSensitivity: .15,
     })
-    cy.on('tap', 'node', event => setSelected(`${event.target.data('label')} · ${event.target.data('state')}`))
+    cy.on('tap', 'node', event => { cy.elements().removeClass('focused'); event.target.addClass('focused'); event.target.neighborhood().addClass('focused'); setSelected(`${event.target.data('label')} · ${event.target.data('state')}`) })
+    cy.on('mouseover', 'node', event => { event.target.addClass('focused'); cy.container()!.style.cursor = 'pointer' })
+    cy.on('mouseout', 'node', event => { event.target.removeClass('focused'); cy.container()!.style.cursor = 'default' })
     return () => cy.destroy()
   }, [graph, showAuthority, compact, theme])
 

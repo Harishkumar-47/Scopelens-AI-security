@@ -1,0 +1,5 @@
+export function mapArtwork(kind: string, color: string) {
+  const glyph = kind === 'agent' ? 'AI' : kind === 'resource' ? '▤' : kind === 'risk' || kind === 'outcome' ? '!' : kind === 'untrusted' ? '?' : '◇'
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="110" viewBox="0 0 120 110"><defs><linearGradient id="g" x2="0" y2="1"><stop stop-color="white"/><stop offset="1" stop-color="${color}" stop-opacity=".2"/></linearGradient></defs><ellipse cx="60" cy="97" rx="42" ry="9" fill="${color}" opacity=".12"/><path d="M15 35 60 12 105 35 105 77 60 100 15 77Z" fill="${color}"/><path d="M15 35 60 58 105 35 60 12Z" fill="url(#g)" stroke="${color}" stroke-width="2"/><path d="M15 35 60 58 60 100 15 77Z" fill="${color}" opacity=".65"/><path d="M60 58 105 35 105 77 60 100Z" fill="black" opacity=".1"/><text x="60" y="44" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="bold" fill="#263240">${glyph}</text></svg>`
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+}
