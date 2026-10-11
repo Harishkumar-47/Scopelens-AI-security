@@ -7,6 +7,7 @@ import Analysis from './pages/Analysis'
 import Compare from './pages/Compare'
 import Scenarios from './pages/Scenarios'
 import LiveLab from './pages/LiveLab'
+import PracticalLab from './pages/PracticalLab'
 import LiveCompare from './pages/LiveCompare'
 import Activity from './pages/Activity'
 import Proof from './pages/Proof'
@@ -42,7 +43,7 @@ export default function App() {
       <Route path="/live/compare" element={<Navigate to="/live" replace/>}/>
       <Route path="/tester" element={<Tester/>}/>
       <Route path="/impact" element={<Impact/>}/>
-      <Route path="/practical" element={<Navigate to="/tester" replace/>}/>
+      <Route path="/practical" element={<PracticalLab/>}/>
       <Route path="/proof" element={<Proof/>}/>
       <Route path="/activity" element={<Activity/>}/>
       <Route path="/scenarios" element={<Scenarios/>}/>

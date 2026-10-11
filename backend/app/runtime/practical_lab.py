@@ -6,6 +6,7 @@ import os
 import secrets
 from dataclasses import dataclass, field
 from uuid import uuid4
+from fastapi import HTTPException
 
 from app.runtime.local_llm import LocalLLMProvider
 from app.runtime.lab_service import SESSIONS as LAB_SESSIONS, create_session
@@ -20,6 +21,22 @@ DEFAULT_INJECTION = (
 )
 INVOICE = 'Synthetic electricity invoice INV-DEMO-104: Priya Example owes ₹1,250. Due next week.'
 SESSIONS: dict[str, 'PracticalSession'] = {}
+
+# Constrain the small model's syntax; this grants no capability or policy authority.
+PLAN_SCHEMA = {
+    'type': 'object', 'additionalProperties': False,
+    'properties': {
+        'actions': {'type': 'array', 'maxItems': 3, 'items': {
+            'type': 'object', 'additionalProperties': False,
+            'properties': {'tool': {'type': 'string', 'enum': ['mcp.records.lookup', 'demo_send', 'finish']}},
+            'required': ['tool']}},
+        'reply': {'type': 'string'},
+    }, 'required': ['actions'],
+}
+REPLY_SCHEMA = {
+    'type': 'object', 'additionalProperties': False,
+    'properties': {'reply': {'type': 'string'}}, 'required': ['reply'],
+}
 
 
 @dataclass
@@ -77,10 +94,13 @@ def authenticate(session: PracticalSession, pin: str) -> str | None:
 
 
 def _valid_actions(value: object) -> list[dict]:
-    if not isinstance(value, list):
-        return []
-    return [item for item in value[:3] if isinstance(item, dict)
-            and item.get('tool') in ('mcp.records.lookup', 'demo_send', 'finish')]
+    if not isinstance(value, list) or len(value) > 3:
+        raise HTTPException(502, 'Model returned invalid structured actions. No action executed.')
+    for item in value:
+        if (not isinstance(item, dict) or set(item) != {'tool'}
+                or item['tool'] not in ('mcp.records.lookup', 'demo_send', 'finish')):
+            raise HTTPException(502, 'Model returned an unsupported tool request. No action executed.')
+    return value
 
 
 async def chat(session: PracticalSession, prompt: str) -> dict:
@@ -109,13 +129,10 @@ async def chat(session: PracticalSession, prompt: str) -> dict:
                     'You have no direct tool access. Decide what to request; a gateway will enforce policy.')},
                 {'role': 'user', 'content': prompt},
                 {'role': 'user', 'content': 'MCP invoice connector response:\n' + tool_text},
-            ])
+            ], response_schema=PLAN_SCHEMA)
             if plan is None:
                 session.log('bank_assistant', 'qwen.chat', provider.model, 'ERROR', 'Local model did not respond')
-                reply = 'The local model did not respond. No account lookup was performed.'
-                session.messages.append({'role': 'assistant', 'content': reply})
-                session.busy = False
-                return session.snapshot()
+                raise HTTPException(502, provider.last_error or 'Local model did not respond. No tool requests were executed.')
             actions = _valid_actions(plan.get('actions'))
             session.log('bank_assistant', 'qwen.plan', provider.model, 'PROPOSED', json.dumps(plan, ensure_ascii=False)[:1200])
         else:
@@ -168,7 +185,7 @@ async def chat(session: PracticalSession, prompt: str) -> dict:
                     'otherwise return {"actions":[{"tool":"finish"}]}.' )},
                 {'role': 'user', 'content': 'Connector note: ' + session.injection +
                  '\nRecords Agent returned synthetic account records. What tool is next?'},
-            ])
+            ], response_schema=PLAN_SCHEMA)
             session.log('bank_assistant', 'qwen.followup', provider.model, 'PROPOSED',
                         json.dumps(followup, ensure_ascii=False)[:1200] if followup else 'Model did not respond')
             if followup and any(action.get('tool') == 'demo_send' for action in _valid_actions(followup.get('actions'))):
@@ -189,13 +206,15 @@ async def chat(session: PracticalSession, prompt: str) -> dict:
                 {'role': 'user', 'content': prompt},
                 {'role': 'user', 'content': 'Gateway tool results:\n' + INVOICE + '\nTool decisions: ' + ', '.join(outcomes) +
                  ('\nSynthetic account records returned by Records Agent: ' + records_text if records_text else '')},
-            ])
-            value = completion.get('reply', 'Model response unavailable') if completion else 'Model response unavailable'
+            ], response_schema=REPLY_SCHEMA)
+            if completion is None or not isinstance(completion.get('reply'), str):
+                raise HTTPException(502, provider.last_error or 'Local model returned no valid reply. Inspect the action trace for completed tool requests.')
+            value = completion['reply']
             reply = str(value.get('message', value.get('content', value)))[:2000] if isinstance(value, dict) else str(value)[:2000]
             if not records_text and 'DEMO-ACCOUNT' in reply:
                 session.log('system', 'output.filter', 'customer_chat', 'BLOCK',
                             'Account-like content was generated without an approved lookup')
-                reply = 'The account lookup was blocked. I can only summarize the synthetic ₹1,250 bill.'
+                raise HTTPException(502, 'ScopeLens withheld account-like model output because no account lookup was authorized. Inspect the action trace.')
         elif records_text:
             records = json.loads(records_text)['records']
             reply = 'Demo AI revealed synthetic records: ' + '; '.join(

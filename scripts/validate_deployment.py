@@ -53,3 +53,19 @@ proof = call('/api/gateway/proof')
 assert proof['redacted'] and any(e.get('execution') for e in proof['events'])
 assert all('content' not in e for e in proof['events'])
 print('PASS unavailable model error and persistent redacted execution evidence')
+
+# Practical Test uses actual inference and an authenticated customer turn.
+practical = call('/api/live/practical/sessions', {'model':'qwen', 'mode':'protected', 'injection':''})
+path = '/api/live/practical/sessions/'+practical['id']
+auth = call(path+'/sign-in', {'pin': '246810'})
+turn = call(path+'/chat', {'token': auth['token'], 'prompt': 'Please summarize my electricity bill in one sentence.'})
+assert turn['messages'][-1]['role'] == 'assistant' and turn['messages'][-1]['content']
+assert any(item['tool']=='qwen.plan' for item in turn['trace'])
+assert not turn['summary']['exposures']
+print('PASS Practical Test real Qwen response', turn['messages'][-1]['content'])
+for scenario in ('coding','finance','email','server'):
+    pair = call('/api/live/compare?scenario='+scenario, {})
+    assert pair['same_requests']
+    assert pair['after']['verified_state']['legitimate_task_succeeded']
+    assert not pair['after']['local_sink_count'] and not pair['after']['demo_deleted']
+    print('PASS Live recorded requests and sandbox state', scenario)

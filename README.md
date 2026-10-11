@@ -16,7 +16,7 @@ docker compose --profile live-model up -d --build backend frontend
 curl --fail http://127.0.0.1:8000/api/readiness
 ```
 
-Open [ScopeLens](http://localhost:3000), [API docs](http://localhost:8000/docs), or [health](http://localhost:8000/api/health). Model installation is separate from image builds. Weights remain in the Ollama volume. CPU-only inference uses two threads; allow up to 240 seconds for cold loading/inference. Readiness checks actually load the configured Ollama runner, rather than treating an installed tag as sufficient.
+Open [ScopeLens](http://localhost:3000), [API docs](http://localhost:8000/docs), or [health](http://localhost:8000/api/health). Model installation is separate from image builds. Weights remain in the Ollama volume. CPU-only inference uses two threads, a 2,048-token context, up to 256 output tokens, one concurrent request, a 180-second request timeout and a 60-second keep-alive. Availability checks read installed tags without loading a runner; inference failures surface as errors. Ollama has a 1.5 GiB limit, FastAPI 384 MiB and nginx 128 MiB.
 
 Ollama is optional: set `LLM_ENABLED=false`, then run `docker compose up -d --build`. Choose **Demo AI · scripted** for recorded tests. A failed local inference produces an error and never silently becomes Demo AI.
 
@@ -27,6 +27,7 @@ See [complete Docker/local setup and validation steps](docs/setup-and-validation
 **BUILD → CHECK → TEST → PROTECT → DEPLOY**
 
 - **Analyze:** import local JSON configurations or simplified provider manifests. Backend adapters extract supported permissions, calculate capability combinations and show NetworkX risk paths. Manual permission entry remains available.
+- **Practical Test:** open `/practical` for authenticated Qwen bill chat and the Bank → Records → gateway trace. Tool proposals use Ollama JSON-schema output and independent strict backend validation; Demo AI is an explicit scripted selection.
 - **Tester:** converse with Bank, Code, Email, Server or Custom agents. Qwen proposes actual requests; the gateway validates and executes controlled sandbox tools. Model-generated text is distinguished from backend execution summaries. A model refusing an attack is a valid result.
 - **Intent Lock:** configure the job, tools, resources, forbidden actions, approval tools and authorized delegates. ALLOW and WARN execute granted tools, ASK waits for a human, and BLOCK denies execution. Delegation can only narrow permissions and inherits restrictions.
 - **Live:** run identical captured requests through isolated OFF and ON sandboxes. Four recorded scenarios are available; select a captured model session to replay real model actions without fresh inference.
@@ -98,4 +99,4 @@ Existing permission-removal simulation remains: the demo Support Agent changes f
 
 See [architecture](docs/architecture.md), [risk model](docs/risk-model.md) and [runtime guard](docs/runtime-guard.md). Swagger documents the complete current API.
 
-The optional `small-model` profile preserves llama.cpp support. It downloads quantized Qwen into a model volume at startup; Ollama remains the default. Both installed runtimes can appear in Tester when `LLM_ENABLED=true`.
+The Compose stack uses one Ollama service. An existing external Ollama can be shared instead: set `LLM_BASE_URL=http://host.docker.internal:11434` and start only backend/frontend, without the `live-model` profile. The optional external llama.cpp adapter remains available only when `LLAMA_CPP_BASE_URL` is explicitly configured; no second inference service is started.

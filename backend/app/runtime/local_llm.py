@@ -2,9 +2,9 @@
 
 import json
 import os
-import time
+import threading
 
-_READINESS = {}
+_INFERENCE_LOCK = threading.Lock()
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -13,10 +13,10 @@ import urllib.error
 class LocalLLMProvider:
     def __init__(self):
         self.last_error = ''
-        self.timeout = max(15, min(300, int(os.getenv('LLM_TIMEOUT_SECONDS', '240'))))
+        self.timeout = max(15, min(300, int(os.getenv('LLM_TIMEOUT_SECONDS', '180'))))
         self.enabled = os.getenv('LLM_ENABLED', 'false').lower() == 'true'
         self.model = os.getenv('LOCAL_LLM_MODEL', 'qwen3:0.6b')
-        self.fallback_url = os.getenv('LLAMA_CPP_BASE_URL', 'http://localhost:8081').rstrip('/')
+        self.fallback_url = os.getenv('LLAMA_CPP_BASE_URL', '').rstrip('/')
         self.base_url = os.getenv('LLM_BASE_URL', 'http://localhost:11434').rstrip('/')
 
     def installed_models(self) -> list[str]:
@@ -67,18 +67,6 @@ class LocalLLMProvider:
                             for item in models if isinstance(item, dict))
             if not installed:
                 return {'model': self.model, 'ready': False, 'status': 'not_installed'}
-            key = (self.base_url, self.model)
-            if _READINESS.get(key, 0) < time.monotonic() - 30:
-                # Empty generation loads the actual runner; tags alone do not prove readiness.
-                request = urllib.request.Request(self.base_url + '/api/generate',
-                    json.dumps({'model': self.model, 'prompt': '', 'stream': False,
-                                'keep_alive': '30m', 'options': {'num_ctx': 2048, 'num_thread': 2, 'num_batch': 128}}).encode(),
-                    {'Content-Type': 'application/json'})
-                with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                    loaded = json.load(response)
-                if loaded.get('done') is not True:
-                    return {'model': self.model, 'ready': False, 'status': 'load_failed'}
-                _READINESS[key] = time.monotonic()
             return {'model': self.model, 'ready': True, 'status': 'ready'}
         except TimeoutError:
             return {'model': self.model, 'ready': False, 'status': 'load_timeout'}
@@ -112,21 +100,25 @@ class LocalLLMProvider:
         except Exception:
             return None
 
-    def chat_json(self, messages: list[dict], timeout: int | None = None) -> dict | None:
+    def chat_json(self, messages: list[dict], timeout: int | None = None, response_schema: dict | None = None) -> dict | None:
         """Ask the local model for a structured chat turn; never execute its requests here."""
         llama = self.model.startswith('llamacpp::')
         endpoint = self.fallback_url if llama else self.base_url
         if not self.enabled or not self._safe_endpoint(endpoint):
             self.last_error = 'Local inference is disabled or the configured endpoint is not permitted.'
             return None
-        data = {'model': self.model, 'stream': False, 'format': 'json', 'think': False,
-                'keep_alive': '30m', 'options': {'temperature': 0.2, 'num_ctx': 2048, 'num_thread': 2, 'num_batch': 128, 'num_predict': 512},
+        data = {'model': self.model, 'stream': False, 'format': response_schema or 'json', 'think': False,
+                'keep_alive': '60s', 'options': {'temperature': 0.2, 'num_ctx': 2048, 'num_thread': 2, 'num_batch': 128, 'num_gpu': 0, 'num_predict': 256},
                 'messages': messages}
         if llama:
             data = {'model': self.model.removeprefix('llamacpp::'), 'messages': messages,
-                    'stream': False, 'temperature': 0.2, 'max_tokens': 512,
+                    'stream': False, 'temperature': 0.2, 'max_tokens': 256,
                     'response_format': {'type': 'json_object'},
                     'chat_template_kwargs': {'enable_thinking': False}}
+        if not _INFERENCE_LOCK.acquire(blocking=False):
+            self.last_error = 'Local model is busy. Wait for the current request to finish.'
+            return None
+        self.last_error = ''
         try:
             request = urllib.request.Request(endpoint + ('/v1/chat/completions' if llama else '/api/chat'), json.dumps(data).encode(),
                                              {'Content-Type': 'application/json'})
@@ -134,7 +126,10 @@ class LocalLLMProvider:
                 result = json.load(response)
             content = result['choices'][0]['message']['content'] if llama else result['message']['content']
             parsed = json.loads(content)
-            return parsed if isinstance(parsed, dict) else None
+            if not isinstance(parsed, dict):
+                self.last_error = 'Local model returned invalid JSON: expected an object.'
+                return None
+            return parsed
         except urllib.error.HTTPError as error:
             self.last_error = f'Local model runtime returned HTTP {error.code}.'
             return None
@@ -147,3 +142,6 @@ class LocalLLMProvider:
         except (ValueError, KeyError, TypeError, IndexError):
             self.last_error = 'Local model returned invalid JSON or an invalid response structure.'
             return None
+
+        finally:
+            _INFERENCE_LOCK.release()

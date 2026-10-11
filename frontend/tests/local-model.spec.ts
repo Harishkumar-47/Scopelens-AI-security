@@ -1,0 +1,23 @@
+import { test, expect } from '@playwright/test'
+
+test('installed Qwen is visible and Practical Test receives real inference', async ({ page }) => {
+  test.skip(process.env.TEST_LOCAL_MODEL !== 'true', 'Requires installed Qwen and running Ollama')
+  test.setTimeout(300000)
+  await page.goto('/live/session')
+  const config = await (await page.request.get('/api/live/config')).json()
+  expect(config.local_model_enabled).toBe(true)
+  await expect(page.getByRole('option', { name: 'qwen3:0.6b — Ready' })).toBeEnabled()
+  await page.goto('/practical')
+  await expect(page.getByRole('option', { name: 'qwen3:0.6b · real local model' })).toBeEnabled()
+  await page.getByLabel('Injected MCP connector text').fill('')
+  await page.getByRole('button', { name: 'Start new test' }).click()
+  await page.getByLabel('Demo operator PIN').fill('246810')
+  await page.getByRole('button', { name: 'Authenticate', exact: true }).click()
+  await page.getByLabel('Chat prompt').fill('Please summarize my electricity bill in one sentence.')
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  await expect(page.locator('.practical-message.assistant, .error').first()).toBeVisible({ timeout: 240000 })
+  await expect(page.locator('.error')).toHaveCount(0)
+  await expect(page.locator('.practical-message.assistant')).toContainText(/1,250|1250/)
+  await expect(page.locator('.practical-trace')).toContainText('qwen.plan')
+  await expect(page.locator('.error')).toHaveCount(0)
+})

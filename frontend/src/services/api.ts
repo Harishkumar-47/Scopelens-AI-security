@@ -1,7 +1,7 @@
 import type { Agent, AnalysisResult, SimulationResult, LiveSession, LiveComparison, LiveScenario, PracticalSession } from '../types'
 const ownerTokens = new Map<string, string>()
 async function call<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...options?.headers } })
+  const response = await fetch(`/api${path}`, { signal: AbortSignal.timeout(300000), ...options, headers: { 'Content-Type': 'application/json', ...options?.headers } })
   if (!response.ok) {
     const body = await response.text()
     let message = body

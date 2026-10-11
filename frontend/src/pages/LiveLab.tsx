@@ -39,8 +39,11 @@ export default function LiveLab() {
   }, [])
 
   useEffect(() => {
-    api.liveConfig().then(setConfig).catch(() => setConfig(null))
+    const refresh = () => api.liveConfig().then(setConfig).catch(() => setConfig(null))
+    void refresh()
+    const timer = window.setInterval(refresh, 10000)
     if (!mounted.current) { mounted.current = true; void create(initialScenario, 'unprotected', 'replay') }
+    return () => window.clearInterval(timer)
   }, [create, initialScenario])
   useEffect(() => {
     if (mounted.current && initialScenario !== scenario) {

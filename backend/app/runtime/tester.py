@@ -151,13 +151,13 @@ def apply(session, prompt, actions):
 
 def model_label(name: str) -> str:
     family, _, size = name.partition(':')
-    labels = {'qwen3': 'Qwen3', 'llama3.2': 'Llama 3.2', 'phi4-mini': 'Phi-4 Mini', 'gemma3': 'Gemma 3'}
+    labels = {'qwen3': 'Qwen3', 'phi4-mini': 'Phi-4 Mini', 'gemma3': 'Gemma 3'}
     return labels.get(family, family) + (' ' + size.upper() if size and size != 'latest' else '')
 
 @router.get('/models')
 def models():
     installed = LocalLLMProvider().installed_models()
-    preferred = next((name for name in ('qwen3:0.6b', 'qwen3:1.7b', 'llama3.2:1b') if name in installed), installed[0] if installed else 'demo')
+    preferred = next((name for name in (LocalLLMProvider().model, 'qwen2.5:0.5b') if name in installed), 'demo')
     return {'models': [{'id': 'demo', 'label': 'Demo AI · scripted fallback'}]+[{'id': name, 'label': model_label(name.removeprefix('llamacpp::')) + (' · llama.cpp' if name.startswith('llamacpp::') else ' · Ollama')} for name in installed], 'ollama_available': bool(installed), 'recommended_model': preferred}
 
 @router.post('/sessions')
